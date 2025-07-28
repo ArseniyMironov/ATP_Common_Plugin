@@ -30,72 +30,69 @@ namespace ATP_Common_Plugin.Commands
             IList<Element> ductAccessory = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_DuctAccessory);
             IList<Element> pipeFittings = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_PipeFitting);
             IList<Element> pipeAccessory = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_PipeAccessory);
-            
-            using(Transaction tr = new Transaction(doc,"Обработка вложенных элементов сантехнических приборов"))
+            try
             {
-                tr.Start();
+                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов сантехнических приборов"))
+                {
+                    tr.Start();
 
-                SetDependentElemParam(doc, plumbFix, ref log);
+                    SetDependentElemParam(doc, plumbFix, ref log);
 
-                tr.Commit();
+                    tr.Commit();
+                }
+
+                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов оборудования"))
+                {
+                    tr.Start();
+
+                    SetDependentElemParam(doc, mechEquip, ref log);
+
+                    tr.Commit();
+                }
+
+                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов арматуры воздуховодов"))
+                {
+                    tr.Start();
+
+                    SetDependentElemParam(doc, ductAccessory, ref log);
+
+                    tr.Commit();
+                }
+
+                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов фитингов воздуховодов"))
+                {
+                    tr.Start();
+
+                    SetDependentElemParam(doc, ductFittings, ref log);
+
+                    tr.Commit();
+                }
+
+                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов арматуры трубопроводов"))
+                {
+                    tr.Start();
+
+                    SetDependentElemParam(doc, pipeAccessory, ref log);
+
+                    tr.Commit();
+                }
+
+                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов фитингов трубопроводов"))
+                {
+                    tr.Start();
+
+                    SetDependentElemParam(doc, pipeFittings, ref log);
+
+                    tr.Commit();
+                }
             }
-
-            using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов оборудования"))
+            catch
             {
-                tr.Start();
-
-                SetDependentElemParam(doc, mechEquip, ref log);
-
-                tr.Commit();
-            }
-
-            using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов арматуры воздуховодов"))
-            {
-                tr.Start();
-
-                SetDependentElemParam(doc, ductAccessory, ref log);
-
-                tr.Commit();
-            }
-
-            using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов фитингов воздуховодов"))
-            {
-                tr.Start();
-
-                SetDependentElemParam(doc, ductFittings, ref log);
-
-                tr.Commit();
-            }
-
-            using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов арматуры трубопроводов"))
-            {
-                tr.Start();
-
-                SetDependentElemParam(doc, pipeAccessory, ref log);
-
-                tr.Commit();
-            }
-
-            using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов фитингов трубопроводов"))
-            {
-                tr.Start();
-
-                SetDependentElemParam(doc, pipeFittings, ref log);
-
-                tr.Commit();
-            }
-
-            if (log.Length > 0)
-            {
-                TaskDialog.Show("Ошибка", log);
+                logger.LogError($"Непредвиденная ошибка: {log}", docName);
                 return Result.Failed;
             }
-            else
-            {
-                //TaskDialog.Show("Готово", "Параметры переданы во вложенные семейства");
-                logger.LogInfo("Параметры переданы во вложенные семейства", docName);
-                return Result.Succeeded;
-            }
+            logger.LogInfo("Параметры переданы во вложенные семейства", docName);
+            return Result.Succeeded;
         }
 
         /// <summary>
