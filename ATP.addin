@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>ATP_Common_Plugin</Name>
+		<Assembly>ATP_Common_Plugin\ATP_Common_Plugin.dll</Assembly>
+		<ClientId>3F14AE80-9CFF-4F92-B5D0-F9439E933DA9</ClientId>
+		<FullClassName>ATP_Common_Plugin.ATP_App</FullClassName>
+		<VendorId>ARMI</VendorId>
+		<VendorDescription>Mironov Arseiny, Arseniy.Mironov@atp-tlp.ru</VendorDescription>
+	</AddIn>
+</RevitAddIns>
