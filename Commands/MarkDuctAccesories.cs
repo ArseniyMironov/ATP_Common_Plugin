@@ -30,7 +30,7 @@ namespace ATP_Common_Plugin.Commands
 
                 if (ductAcessories.Count == 0)
                 {
-                    TaskDialog.Show("Ошибка", "В модели нет элементов категории Duct Accesory'. (Проверьте рабочие наборы)");
+                    //TaskDialog.Show("Ошибка", "В модели нет элементов категории Duct Accesory'. (Проверьте рабочие наборы)");
                     logger.LogWarning("В модели нет элементов категории Duct Accesory'. (Проверьте рабочие наборы)", docName);
                     return Result.Cancelled;
                 }

@@ -1,4 +1,5 @@
-﻿using Autodesk.Revit.Attributes;
+﻿using ATP_Common_Plugin.Services;
+using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
@@ -20,10 +21,13 @@ namespace ATP_Common_Plugin.Commands
         {
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc.Document;
+            string docName = doc.Title;
             View view = doc.ActiveView;
+            var logger = ATP_App.GetService<ILoggerService>();
 
             using (Transaction tr = new Transaction(doc, "Удаление старых марок"))
             {
+                logger.LogInfo("Удаление старых марок отверстий", docName);
                 tr.Start();
                 var oldTags = new FilteredElementCollector(doc, view.Id)
                     .OfCategory(BuiltInCategory.OST_SprinklerTags)
@@ -35,6 +39,7 @@ namespace ATP_Common_Plugin.Commands
                     doc.Delete(tag.Id);
 
                 tr.Commit();
+                logger.LogInfo("Cтарые мароки удалены", docName);
             }
 
             var sprinklers = new FilteredElementCollector(doc, view.Id)
@@ -53,6 +58,7 @@ namespace ATP_Common_Plugin.Commands
 
             using (Transaction tr = new Transaction(doc, "Маркировка"))
             {
+                logger.LogInfo("Начало маркировки отверстий", docName);
                 tr.Start();
 
                 HashSet<Outline> occupiedZones = new HashSet<Outline>();
@@ -104,7 +110,8 @@ namespace ATP_Common_Plugin.Commands
                 tr.Commit();
             }
 
-            TaskDialog.Show("Результат", $"✅ Аннотаций создано: {created}");
+            logger.LogInfo($"Создано {created} маркирок отверстий", docName);
+            logger.LogInfo("Конец маркировки отверстий", docName);
             return Result.Succeeded;
         }
 

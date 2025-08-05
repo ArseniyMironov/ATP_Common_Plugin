@@ -1,6 +1,8 @@
-﻿using ATP_Common_Plugin.Utils;
+﻿using ATP_Common_Plugin.Services;
+using ATP_Common_Plugin.Utils;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
@@ -18,6 +20,9 @@ namespace ATP_Common_Plugin.Commands
             UIApplication uiApp = commandData.Application;
             UIDocument uiDoc = uiApp.ActiveUIDocument;
             Document doc = uiDoc.Document;
+            string docName = doc.Title;
+
+            var logger = ATP_App.GetService<ILoggerService>();
 
             IList<Element> ducts = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_DuctCurves);
             IList<Element> ductsFlex = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_FlexDuctCurves);
@@ -35,6 +40,8 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка воздуховодов"))
                 {
+                    logger.LogInfo("Начало обработки воздуховодов", docName);
+
                     tr.Start();
 
                     foreach (Element duct in ducts)
@@ -78,11 +85,13 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке воздуховодов {duct.Id} {ex}");
+                            logger.LogError($"Ошибка при обработке воздуховодов {duct.Id} {ex}", docName);
+                            //testLog.Concat($"Ошибка при обработке воздуховодов {duct.Id} {ex}");
                             //TaskDialog.Show("Ошибка", $"Ошибка при обработке воздуховодов {duct.Id} {ex.ToString()}");
                         }
                     }
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки воздуховодов", docName);
                 }
             }
 
@@ -91,6 +100,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка соединительных деталей воздуховодов"))
                 {
+                    logger.LogInfo("Начало обработки соединительных деталей воздуховодов", docName);
                     tr.Start();
 
                     foreach (Element ductFitting in ductFittings)
@@ -134,6 +144,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                     }
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки соединительных деталей воздуховодов", docName);
                 }
             }
 
@@ -142,6 +153,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка изоляции воздуховодов"))
                 {
+                    logger.LogInfo("Начало обработки изоляции воздуховодов", docName);
                     tr.Start();
 
                     foreach (Element insulation in ductInsulation)
@@ -192,6 +204,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                     }
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки изоляции воздуховодов", docName);
                 }
             }
 
@@ -200,6 +213,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка гибких воздуховодов"))
                 {
+                    logger.LogInfo("Начало обработки гибких воздуховодов", docName);
                     tr.Start();
 
                     foreach (Element flexDuct in ductsFlex)
@@ -239,6 +253,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                     }
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки гибких воздуховодов", docName);
                 }
             }
 
@@ -247,6 +262,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка трубопроводов"))
                 {
+                    logger.LogInfo("Начало обработки трубопроводов", docName);
                     tr.Start();
 
                     foreach (Element pipe in pipes)
@@ -318,6 +334,7 @@ namespace ATP_Common_Plugin.Commands
                     }
 
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки трубопроводов", docName);
                 }
             }
 
@@ -326,6 +343,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using( Transaction tr = new Transaction(doc, "Обработка гибких трубопроводов"))
                 {
+                    logger.LogInfo("Начало обработки гибких трубопроводов", docName);
                     tr.Start();
 
                     foreach (var flex in pipesFlex)
@@ -368,6 +386,7 @@ namespace ATP_Common_Plugin.Commands
                     }
 
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки гибких трубопроводов", docName);
                 }
             }
 
@@ -376,6 +395,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка изоляции трубопроводов"))
                 {
+                    logger.LogInfo("Начало обработки изоляции трубопроводов", docName);
                     tr.Start();
                     foreach (Element insulation in pipeInsulation)
                     {
@@ -444,18 +464,20 @@ namespace ATP_Common_Plugin.Commands
                         }
                     }
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки изоляции трубопроводов", docName);
                 }
             }
 
             // Finish
             if (testLog.Length > 0)
             {
-                TaskDialog.Show("Ошибки", $"{testLog}");
+                //TaskDialog.Show("Ошибки", $"{testLog}");
                 return Result.Succeeded;
             }
             else
             {
-                TaskDialog.Show("Готово", "Параметры для спецификации заполнены!");
+                //TaskDialog.Show("Готово", "Параметры для спецификации заполнены!");
+                logger.LogInfo("Завершение заполнение параметров для специфицкации", docName);
                 return Result.Succeeded; // Подумать, может можно не заканчивать, а пропустить?
             }
         }
@@ -468,6 +490,7 @@ namespace ATP_Common_Plugin.Commands
         /// <param newName="thickness"></param>
         private void GetDuctThickness(Element elem, ref string ductSize, ref string thickness)
         {
+            var logger = ATP_App.GetService<ILoggerService>();
             try
             {
                 //  Определение типа воздуховода (вынесено в отдельные методы для читаемости)
@@ -479,7 +502,8 @@ namespace ATP_Common_Plugin.Commands
 
                 if (mainSize <= 0)
                 {
-                    TaskDialog.Show("Ошибка", $"Не удалось определить размер {elem.Category.Name} - ID:{elem.Id}");
+                    //TaskDialog.Show("Ошибка", $"Не удалось определить размер {elem.Category.Name} - ID:{elem.Id}");
+                    logger.LogWarning($"Не удалось определить размер {elem.Category.Name} - ID:{elem.Id}", elem.Document.Title);
                     thickness = "0.0";
                     return;
                 }
@@ -489,7 +513,8 @@ namespace ATP_Common_Plugin.Commands
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("Критическая ошибка", $"Ошибка при расчете толщины: {ex.Message}");
+                //TaskDialog.Show("Критическая ошибка", $"Ошибка при расчете толщины: {ex.Message}");
+                logger.LogError($"Ошибка при расчете толщины: {ex.Message}", elem.Document.Title);
                 thickness = "0.0";
             }
         }
