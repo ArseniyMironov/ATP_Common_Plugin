@@ -199,7 +199,6 @@ namespace ATP_Common_Plugin.Commands
                     catch (Exception ex)
                     {
                         logger.LogError($"Ошибка при обработке элемента - {host.Id}. {ex.Message}", docName);
-                        //log.Concat($"Ошибка при обработке элемента {host.Id}, {ex} - {host.Id}");
                     }
                 }
             }

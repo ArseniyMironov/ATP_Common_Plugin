@@ -41,7 +41,6 @@ namespace ATP_Common_Plugin.Commands
                 using (Transaction tr = new Transaction(doc, "Обработка воздуховодов"))
                 {
                     logger.LogInfo("Начало обработки воздуховодов", docName);
-
                     tr.Start();
 
                     foreach (Element duct in ducts)

@@ -31,7 +31,6 @@ namespace ATP_Common_Plugin.Commands
 
             if (doc == null)
             {
-                //message = "Активный документ не найден";
                 logger.LogError("Активный документ не найден", docName);
                 return Result.Failed;
             }
@@ -179,7 +178,6 @@ namespace ATP_Common_Plugin.Commands
                         else
                         {
                             logger.LogWarning("Не найдено линейных объектов для обработки", docName);
-                            //Debug.WriteLine("Не найдено линейных объектов для обработки");
                         }
 
                         if (mechEquip.Count > 0)
@@ -189,7 +187,6 @@ namespace ATP_Common_Plugin.Commands
                         else
                         {
                             logger.LogWarning("Не найдено оборудования для обработки", docName);
-                            //Debug.WriteLine("Не найдено оборудования для обработки");
                         }
                     }
                     else 

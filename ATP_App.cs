@@ -57,7 +57,7 @@ namespace ATP_Common_Plugin
                     LongDescription = "Центр ошибок собирающий всю информацию об ошибках, предупреждениях и процессах выполнения "
                 };
                 PushButton toggleBtn = ribbonPamelHKLSUtils.AddItem(toggleBtnData) as PushButton;
-
+                // Маркировка
                 // Мариковрка элементов HKLS
                 string mark_description = "Заполняет параметр ADSK_Обозначение по стандартам оформления ATP-TLP для элементов категории ";
                 PushButtonData mark_air_termi_BtnData = new PushButtonData(name: "Mark Air Terminals", text: "Air Terminals", assemblyName: assemblyName, commandNamespace + "MarkAirTerm")
@@ -79,6 +79,14 @@ namespace ATP_Common_Plugin
                 SplitButton splitButtonMarking = ribbonPamelHKLSMark.AddItem(splitButtonDataMarking) as SplitButton;
                 splitButtonMarking.AddPushButton(mark_air_termi_BtnData); 
                 splitButtonMarking.AddPushButton(mark_duct_acc_BtnData);
+
+                PushButtonData mark_opennings_BtnData = new PushButtonData(name: "Mark Opennings", text: "Mark Opennings", assemblyName: assemblyName, commandNamespace + "MarkOpnennings")
+                {
+                    LargeImage = numbering,
+                    ToolTip = "Маркировка заданий на отверстия на текущем виде",
+                    LongDescription = "Первичная маркировка заданий на отверстия"
+                };
+                PushButton mark_opennings = ribbonPamelHKLSMark.AddItem(mark_opennings_BtnData) as PushButton;
 
                 // Создание 3D видов
                 PushButtonData create_3D_Scheme_BtnData = new PushButtonData(name: "Create 3d Scheme", text: "3D Scheme", assemblyName: assemblyName, commandNamespace + "Create3DViews")
