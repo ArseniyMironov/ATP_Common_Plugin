@@ -12,7 +12,7 @@ namespace ATP_Common_Plugin.Commands
     class MarkOpennings : IExternalCommand
     {
         private const double LABEL_WIDTH_MM = 30 / 304.8; // примерная ширина марки
-        private const double LABEL_HEIGHT_MM = 12 / 304.8; // примерная высота марки
+        private const double LABEL_HEIGHT_MM = 25 / 304.8; // примерная высота марки
         private const int MAX_SPIRAL_STEPS_MM = 50;
         private const double STEP_MM = 15 / 304.8; // 150 мм шаг спирали
 
@@ -38,9 +38,10 @@ namespace ATP_Common_Plugin.Commands
             }
 
             var sprinklers = new FilteredElementCollector(doc, view.Id)
-             .OfCategory(BuiltInCategory.OST_Sprinklers)
-             .WhereElementIsNotElementType()
-             .ToList();
+                .OfCategory(BuiltInCategory.OST_Sprinklers)
+                .WhereElementIsNotElementType()
+                .Where(e => e is FamilyInstance fi && (fi.Symbol.Family.IsInPlace == false && fi.Host == null && fi.SuperComponent == null))
+                .ToList();
 
             double viewScale = view.Scale;
             double LABEL_WIDTH = LABEL_WIDTH_MM * viewScale;
@@ -63,7 +64,7 @@ namespace ATP_Common_Plugin.Commands
                     {
                         Outline sprinklerOutline = new Outline(bbox.Min, bbox.Max);
                         occupiedZones.Add(sprinklerOutline);
-                        DrawOutline(doc, sprinklerOutline, view); // (опционально) отрисуем спринклер
+                        //DrawOutline(doc, sprinklerOutline, view); // (опционально) отрисуем спринклер
                     }
 
                     LocationPoint location = sprinkler.Location as LocationPoint;
@@ -77,7 +78,7 @@ namespace ATP_Common_Plugin.Commands
                         XYZ tagPos = origin + offset;
 
                         Outline tagOutline = GetLabelOutline(tagPos, LABEWL_HEIGHT, LABEL_WIDTH);
-                        DrawOutline(doc, tagOutline, view); // Отрисовка занятой зоны
+                        //DrawOutline(doc, tagOutline, view); // Отрисовка занятой зоны
 
                         if (!IntersectsWithOccupied(occupiedZones, tagOutline))
                         {
@@ -140,12 +141,14 @@ namespace ATP_Common_Plugin.Commands
 
             return false;
         }
+
         private Outline GetLabelOutline(XYZ center, double LABEL_HEIGHT, double LABEL_WIDTH)
         {
-            XYZ min = new XYZ(center.X - LABEL_WIDTH / 2, center.Y - LABEL_HEIGHT / 2, center.Z - 0.1);
-            XYZ max = new XYZ(center.X + LABEL_WIDTH / 2, center.Y + LABEL_HEIGHT / 2, center.Z + 0.1);
+            XYZ min = new XYZ(center.X - LABEL_WIDTH / 2, center.Y - LABEL_HEIGHT * 0.3, center.Z - 0.1);
+            XYZ max = new XYZ(center.X + LABEL_WIDTH / 2, center.Y + LABEL_HEIGHT * 0.6, center.Z + 0.1);
             return new Outline(min, max);
         }
+
         private void DrawOutline(Document doc, Outline outline, View view)
         {
             XYZ p1 = outline.MinimumPoint;
