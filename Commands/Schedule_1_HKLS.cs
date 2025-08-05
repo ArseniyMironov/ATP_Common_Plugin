@@ -7,7 +7,6 @@ using Autodesk.Revit.DB.Plumbing;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -32,7 +31,6 @@ namespace ATP_Common_Plugin.Commands
 
             if (doc == null)
             {
-                //message = "Активный документ не найден";
                 logger.LogError("Активный документ не найден", docName);
                 return Result.Failed;
             }
@@ -80,6 +78,7 @@ namespace ATP_Common_Plugin.Commands
                     }
                     else
                     {
+                        logger.LogError("Ошибка чтения Excel");
                         return Result.Cancelled;
                     }
 
@@ -126,6 +125,7 @@ namespace ATP_Common_Plugin.Commands
                 // Имена систем
                 using (Transaction tr = new Transaction(doc, "Заполнение ИмяСистемы"))
                 {
+                    logger.LogInfo("Начало заполнения параметра ИмяСистемы", docName);
                     tr.Start();
                     if (isUseDict)
                     {
@@ -177,7 +177,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         else
                         {
-                            Debug.WriteLine("Не найдено линейных объектов для обработки");
+                            logger.LogWarning("Не найдено линейных объектов для обработки", docName);
                         }
 
                         if (mechEquip.Count > 0)
@@ -186,7 +186,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         else
                         {
-                            Debug.WriteLine("Не найдено оборудования для обработки");
+                            logger.LogWarning("Не найдено оборудования для обработки", docName);
                         }
                     }
                     else 
@@ -195,7 +195,8 @@ namespace ATP_Common_Plugin.Commands
                     tr.Commit();
                 }
 
-                TaskDialog.Show("Готово", "Имя системы и группирование заполнено.");
+                //TaskDialog.Show("Готово", "Имя системы и группирование заполнено.");
+                logger.LogInfo("Завершение заполнения параметра ИмяСистемы", docName);
 
                 return Result.Succeeded;
             }
@@ -215,6 +216,7 @@ namespace ATP_Common_Plugin.Commands
             List<CategoryOperation> operations)
         {
             var logger = ATP_App.GetService<ILoggerService>();
+            string docName = doc.Title;
             foreach (var operation in operations)
             {
                 using (Transaction tr = new Transaction(doc, operation.Name))
@@ -227,7 +229,7 @@ namespace ATP_Common_Plugin.Commands
                         {
                             if (elementsByCategory.TryGetValue(categoryKey, out var elements) && elements?.Count > 0)
                             {
-                                ProcessElementsBatch(elements, operation.GroupValue);
+                                ProcessElementsBatch(elements, operation.GroupValue, docName);
                             }
                         }
 
@@ -249,10 +251,11 @@ namespace ATP_Common_Plugin.Commands
         }
 
         // Обработка элементов с чанкированием для больших коллекций
-        private void ProcessElementsBatch(IList<Element> elements, string groupValue, int batchSize = 500)
+        private void ProcessElementsBatch(IList<Element> elements, string groupValue, string docName, int batchSize = 500)
         {
             int totalElements = elements.Count;
             int processed = 0;
+            var logger = ATP_App.GetService<ILoggerService>();
 
             while (processed < totalElements)
             {
@@ -273,7 +276,8 @@ namespace ATP_Common_Plugin.Commands
                     catch (Exception ex)
                     {
                         // Логирование ошибки без прерывания процесса
-                        Debug.WriteLine($"Ошибка элемента {element.Id}: {ex.Message}");
+                        logger.LogError($"Ошибка элемента {element.Id}: {ex.Message}", docName);
+                        //Debug.WriteLine($"Ошибка элемента {element.Id}: {ex.Message}");
                     }
                 }
 
@@ -391,9 +395,9 @@ namespace ATP_Common_Plugin.Commands
         {
             var logger = ATP_App.GetService<ILoggerService>();
 
-            if (elements == null) 
+            if (elements == null)
             {
-                TaskDialog.Show("mem", "lol");
+                logger.LogError($"Нет линейных элементов для обработки", docName);
                 return; 
             }
 

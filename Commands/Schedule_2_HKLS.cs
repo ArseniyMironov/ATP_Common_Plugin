@@ -34,56 +34,68 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов сантехнических приборов"))
                 {
+                    logger.LogInfo("Начало обработки вложенных элементов сантехнических приборов", docName);
                     tr.Start();
 
                     SetDependentElemParam(doc, plumbFix, ref log);
 
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки вложенных элементов сантехнических приборов", docName);
                 }
 
                 using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов оборудования"))
                 {
+                    logger.LogInfo("Начало обработки вложенных элементов оборудования", docName);
                     tr.Start();
 
                     SetDependentElemParam(doc, mechEquip, ref log);
 
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки вложенных элементов оборудования", docName);
                 }
 
                 using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов арматуры воздуховодов"))
                 {
+                    logger.LogInfo("Начало обработки вложенных элементов арматуры воздуховодов", docName);
                     tr.Start();
 
                     SetDependentElemParam(doc, ductAccessory, ref log);
 
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки вложенных элементов арматуры воздуховодов", docName);
                 }
 
                 using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов фитингов воздуховодов"))
                 {
+                    logger.LogInfo("Начало обработки вложенных элементов фитингов воздуховодов", docName);
                     tr.Start();
 
                     SetDependentElemParam(doc, ductFittings, ref log);
 
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки вложенных элементов фитингов воздуховодов", docName);
                 }
 
                 using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов арматуры трубопроводов"))
                 {
+                    logger.LogInfo("Начало обработки вложенных элементов арматуры трубопроводов", docName);
                     tr.Start();
 
                     SetDependentElemParam(doc, pipeAccessory, ref log);
 
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки вложенных элементов арматуры трубопроводов", docName);
                 }
 
                 using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов фитингов трубопроводов"))
                 {
+                    logger.LogInfo("Начало обработки вложенных элементов фитингов трубопроводов", docName);
                     tr.Start();
 
                     SetDependentElemParam(doc, pipeFittings, ref log);
 
                     tr.Commit();
+                    logger.LogInfo("Завершение обработки вложенных элементов фитингов трубопроводов", docName);
                 }
             }
             catch
@@ -187,13 +199,12 @@ namespace ATP_Common_Plugin.Commands
                     catch (Exception ex)
                     {
                         logger.LogError($"Ошибка при обработке элемента - {host.Id}. {ex.Message}", docName);
-                        //log.Concat($"Ошибка при обработке элемента {host.Id}, {ex} - {host.Id}");
                     }
                 }
             }
             else
             {
-                
+                logger.LogWarning("Нет элементов для обработки" , docName);
             }
         }
     }
