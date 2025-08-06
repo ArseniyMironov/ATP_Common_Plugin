@@ -87,6 +87,7 @@
     <Compile Include="ATP_App.cs" />
     <Compile Include="Commands\Create3DViews.cs" />
     <Compile Include="Commands\FillSlope.cs" />
+    <Compile Include="Commands\FilterAirTerminalsCommand.cs" />
     <Compile Include="Commands\FixInsulation.cs" />
     <Compile Include="Commands\MarkAirTerm.cs" />
     <Compile Include="Commands\MarkDictPart.cs" />
