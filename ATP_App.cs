@@ -1,10 +1,10 @@
-﻿using ATP_Common_Plugin.Commands;
-using ATP_Common_Plugin.Services;
+﻿using ATP_Common_Plugin.Services;
 using Autodesk.Revit.UI;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Reflection;
 using System.Windows.Media.Imaging;
+using PushButton = Autodesk.Revit.UI.PushButton;
 
 namespace ATP_Common_Plugin
 {
@@ -43,12 +43,13 @@ namespace ATP_Common_Plugin
                 RibbonPanel ribbonPamelHKLSMark = app.CreateRibbonPanel(HKLStabName, "Оформление");
                 RibbonPanel ribbonPamelHKLSUtils = app.CreateRibbonPanel(HKLStabName, "Утилиты");
                 RibbonPanel ribbonPanelHKLSSchedule = app.CreateRibbonPanel(HKLStabName, "Спецификация");
+                RibbonPanel ribbonPanelHKLSTask = app.CreateRibbonPanel(HKLStabName, "Задания");
 
 
                 // Создание кнопки для управления логгером
                 var toggleBtnData = new PushButtonData(
                     name: "ToggleLogger",
-                    text: "Центр ошибок",
+                    text: "Error center",
                     assemblyName: assemblyName,
                     commandNamespace + "ToggleLoggerCommand"
                 )
@@ -80,7 +81,7 @@ namespace ATP_Common_Plugin
                 splitButtonMarking.AddPushButton(mark_air_termi_BtnData); 
                 splitButtonMarking.AddPushButton(mark_duct_acc_BtnData);
 
-                PushButtonData mark_opennings_BtnData = new PushButtonData(name: "Mark Opennings", text: "Mark Opennings", assemblyName: assemblyName, commandNamespace + "MarkOpnennings")
+                PushButtonData mark_opennings_BtnData = new PushButtonData(name: "Mark Opennings", text: "Mark Opennings", assemblyName: assemblyName, commandNamespace + "MarkOpennings")
                 {
                     LargeImage = numbering,
                     ToolTip = "Маркировка заданий на отверстия на текущем виде",
@@ -142,6 +143,16 @@ namespace ATP_Common_Plugin
                     LongDescription = $"Заполнение значений параметров ADSK_Наименование, ADSK_Колличество, ADSK_Обозначение и ADSK_Толщина стенки. Обрабатывает категории Duct, Flex Duct, Duct Fitting, Duct Insulation, Pipe, Flex Pipe и Pipe Insulation. Made by ARMI, Icon by {numberingIconAuthor}"
                 };
                 PushButton Hvac_Schedule_3_Btn = ribbonPanelHKLSSchedule.AddItem(HVAC_Schedule_3_BtnData) as PushButton;
+                
+                // Task
+                // Задание на решетки для АР
+                PushButtonData HVAC_AirTerminal_Task_BtnData = new PushButtonData(name: "Task_Mark_AirTerm", text: "Task air terminal in ceilings", assemblyName: assemblyName, commandNamespace + "FilterAirTerminalsCommand")
+                {
+                    LargeImage = numbering,
+                    ToolTip = "Заполнение основы воздухораспределителей.",
+                    LongDescription = $"Заполнение параметра ATP_Основа в воздухораспределителях необходимого для задания АР. Made by SHKA & ARMI, Icon by {numberingIconAuthor}" 
+                };
+                PushButton HVAC_AirTerminal_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_AirTerminal_Task_BtnData) as PushButton;
 
                 return Result.Succeeded;
 

@@ -25,6 +25,17 @@ namespace ATP_Common_Plugin.Commands
             View view = doc.ActiveView;
             var logger = ATP_App.GetService<ILoggerService>();
 
+            if (view.ViewType == ViewType.ThreeD)
+            {
+                View3D view3D = view as View3D;
+                if (view3D.IsLocked)
+                {
+                    logger.LogError("Активный 3D вид не заблокирован", docName);
+                    return Result.Failed;
+                }
+            }
+
+
             using (Transaction tr = new Transaction(doc, "Удаление старых марок"))
             {
                 logger.LogInfo("Удаление старых марок отверстий", docName);
