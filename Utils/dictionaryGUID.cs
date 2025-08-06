@@ -4,9 +4,12 @@ namespace ATP_Common_Plugin.Utils
 {
     class dictionaryGUID
     {
+        // ФОП
+        public const string SharedParameterFilePath = @"P:\MOS-TLP\GROUPS\ALLGEMEIN\02_ATP_STANDARDS\07_BIM\01_Settings\07_Shared parameter lists\ATP_ФОП.txt";
+
         // Парамтеры ADSK
         public static Guid ADSKGroup = new Guid("3de5f1a4-d560-4fa8-a74f-25d250fb3401");
-        public static Guid ADSKKomp = new Guid("8dd021be-382d-4776-afd4-75996e351de3");
+        public static Guid ADSKKomp = new Guid("8dd021be-382d-4776-afd4-75996e351de3"); // ADSK_Комплект
         public static Guid ADSKName = new Guid("e6e0f5cd-3e26-485b-9342-23882b20eb43");
         public static Guid ADSKMark = new Guid("2204049c-d557-4dfc-8d70-13f19715e46d");
         public static Guid ADSKSign = new Guid("9c98831b-9450-412d-b072-7d69b39f4029"); // ADSK_Обозначение
@@ -20,5 +23,6 @@ namespace ATP_Common_Plugin.Utils
 
         // Парамтеры ATP
         public static Guid ATPMarkScriot = new Guid("bf962560-877e-4870-b390-a649ac64bf7c");
+        public static Guid ATPHost = new Guid("6dfb04f9-1cdb-4f00-988b-25ce488d52f0");
     }
 }
