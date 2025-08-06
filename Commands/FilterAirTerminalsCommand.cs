@@ -20,7 +20,7 @@ namespace ATP_Common_Plugin.Commands
             Document doc = uiDoc.Document;
             Application app = doc.Application;
             string docName = doc.Title;
-            //var logger = ATP_App.GetService<ILoggerService>();
+            var logger = ATP_App.GetService<ILoggerService>();
             var BuiltInCat = BuiltInCategory.OST_DuctTerminal;
 
             try
@@ -34,8 +34,7 @@ namespace ATP_Common_Plugin.Commands
 
                 if (airTerminals.Count == 0)
                 {
-                    //TaskDialog.Show("Ошибка", "Не найдено воздухораспределителей!");
-                    //logger.LogError("Не найдено воздухораспределителей", docName);
+                    logger.LogError("Не найдено воздухораспределителей", docName);
                     return Result.Failed;
                 }
 
@@ -44,29 +43,16 @@ namespace ATP_Common_Plugin.Commands
                 Parameter testParam = airTerminals[0].LookupParameter(paramName);
                 if (testParam == null)
                 {
-                    TaskDialog.Show("Ошибка", $"Параметр '{paramName}' не найден!");
-                    //logger.LogError($"Параметр '{paramName}' не найден", docName);
-                    //return Result.Failed;
-
-                    //// Параметра нет — добавим
-                    //if (!File.Exists(dictionaryGUID.SharedParameterFilePath))
-                    //{
-                    //    TaskDialog.Show("Ошибка", $"Файл общих параметров не найден: {dictionaryGUID.SharedParameterFilePath}");
-                    //    //logger.LogError($"Файл общих параметров не найден: {dictionaryGUID.SharedParameterFilePath}", docName);
-                    //    return Result.Failed;
-                    //}
+                    logger.LogWarning($"Параметр '{paramName}' не найден", docName);
 
                     try
                     {
-                        TaskDialog.Show("Ошибка", "Начали добавлять");
                         RevitUtils.AddSharedParameter(app, doc, paramName, dictionaryGUID.ATPHost, BuiltInCat);
-                        TaskDialog.Show("Ошибка", "Добавили");
+                        logger.LogInfo("Добавлен параметр ATP_Основа", docName);
                     }
                     catch (Exception ex)
                     {
-                        message = $"Ошибка при добавлении общего параметра: {ex.Message}";
-                        TaskDialog.Show("Ошибка", message);
-                        //logger.LogError($"Ошибка при добавлении общего параметра: {ex.Message}", docName);
+                        logger.LogError($"Ошибка при добавлении общего параметра: {ex.Message}", docName);
                         return Result.Failed;
                     }
                 }
@@ -80,8 +66,7 @@ namespace ATP_Common_Plugin.Commands
 
                 if (archLinks.Count == 0)
                 {
-                    //TaskDialog.Show("Ошибка", "Не найдено связанных моделей архитектуры!");
-                    //logger.LogError("Не найдено связанных моделей архитектуры", docName);
+                    logger.LogError("Не найдено связанных моделей архитектуры", docName);
                     return Result.Failed;
                 }
 
@@ -120,8 +105,7 @@ namespace ATP_Common_Plugin.Commands
 
                         if (ceilings.Count == 0)
                         {
-                            //TaskDialog.Show("Инфо", $"В модели {link.Name} нет подходящих потолков");
-                            //logger.LogError($"В модели {link.Name} нет подходящих потолков", docName);
+                            logger.LogError($"В модели {link.Name} нет подходящих потолков", docName);
                             continue;
                         }
 
@@ -140,21 +124,17 @@ namespace ATP_Common_Plugin.Commands
                     }
 
                     t.Commit();
-                    //TaskDialog.Show("Результат",
-                    //    $"Обработано моделей: {archLinks.Count}\n" +
-                    //    $"Проверено потолков: {totalCeilingsChecked}\n" +
-                    //    $"Найдено пересечений: {markedCount}");
-                    //logger.LogInfo($"Обработано моделей: {archLinks.Count}\n" +
-                    //    $"Проверено потолков: {totalCeilingsChecked}\n" +
-                    //    $"Найдено пересечений: {markedCount}", docName);
+
+                    logger.LogInfo($"Обработано моделей: {archLinks.Count}\n" +
+                        $"Проверено потолков: {totalCeilingsChecked}\n" +
+                        $"Найдено пересечений: {markedCount}", docName);
                 }
 
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
-                //TaskDialog.Show("Ошибка", ex.Message);
-                //logger.LogError(ex.Message, docName);
+                logger.LogError(ex.Message, docName);
                 return Result.Failed;
             }
         }
