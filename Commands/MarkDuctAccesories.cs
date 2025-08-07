@@ -49,7 +49,7 @@ namespace ATP_Common_Plugin.Commands
                         string accessoryType = typeGroup.Key;
                         IList<Element> accessories = typeGroup.Value;
 
-                        string prefix = dictionaryHvacElements.GetPrefix(accessoryType);
+                        string prefix = DictionaryHvacElements.GetPrefix(accessoryType);
 
                         var groupedByMark = accessories
                             .GroupBy(x => RevitUtils.GetSharedParameterValue(x, dictionaryGUID.ADSKMark))

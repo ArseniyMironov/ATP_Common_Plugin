@@ -14,7 +14,7 @@ namespace ATP_Common_Plugin
         private static IServiceProvider _serviceProvider;
 
         public Result OnStartup(UIControlledApplication app)
-        { 
+        {
             try
             {
                 // Реализуем логгер

@@ -25,7 +25,7 @@ namespace ATP_Common_Plugin.Commands
             List<Level> levels = new FilteredElementCollector(doc)
                 .OfClass(typeof(Level))
                 .Cast<Level>()
-                .OrderBy(lvl => lvl.Elevation)
+                .OrderBy(l => l.Elevation)
                 .ToList();
 
             if (levels.Count == 0)
@@ -35,82 +35,67 @@ namespace ATP_Common_Plugin.Commands
                 return Result.Failed;
             }
 
-            // Создаем словарь: уровень -> значение ADSK_Этаж
-            Dictionary<Level, string> levelDict = new Dictionary<Level, string>();
-            foreach (var lvl in levels)
+            // Сопоставление Elevation -> строка ADSK_Этаж (до первого "_")
+            var levelDict = new Dictionary<Level, string>();
+            foreach (var level in levels)
             {
-                string[] parts = lvl.Name.Split('_');
-                if (parts.Length > 0)
-                    levelDict[lvl] = parts[0];
+                var nameParts = level.Name.Split('_');
+                if (nameParts.Length > 0)
+                    levelDict[level] = nameParts[0];
             }
 
-            // Получаем все элементы, у которых есть параметр ADSK_Этаж
-            var collector = new FilteredElementCollector(doc)
+            // Коллекция всех элементов модели, кроме типов и уровней
+            var elementsToProcess = new FilteredElementCollector(doc)
                 .WhereElementIsNotElementType()
+                .Where(e => !(e is Level))
                 .ToList();
-
-            int total = collector.Count;
-            int processed = 0;
 
             using (Transaction tr = new Transaction(doc, "Заполнение ADSK_Этаж"))
             {
                 tr.Start();
 
-                foreach (var elem in collector)
+                foreach (var elem in elementsToProcess)
                 {
-                    processed++;
-                    if (processed % 500 == 0)
-                    {
-                        TaskDialog.Show("Прогресс", $"Обработано {processed} из {total} элементов...");
-                    }
-
-                    // Игнорируем вложенные компоненты — они будут обработаны через родителя
-                    if (elem is FamilyInstance fi && fi.SuperComponent != null)
+                    if (elem.Location == null && elem.get_BoundingBox(null) == null)
                         continue;
 
-                    List<Element> targets = new List<Element>();
-
-                    // Если это FamilyInstance — обрабатываем вложенные
-                    if (elem is FamilyInstance instance)
-                    {
-                        foreach (ElementId id in instance.GetSubComponentIds())
-                        {
-                            Element sub = doc.GetElement(id);
-                            if (sub != null && sub.get_Parameter(dictionaryGUID.ADSKLevel) != null)
-                                targets.Add(sub);
-                        }
-                    }
-
+                    // Пробуем получить нижнюю Z координату
                     BoundingBoxXYZ bbox = elem.get_BoundingBox(null);
                     if (bbox == null)
                         continue;
 
                     double z = bbox.Min.Z;
 
+                    // Учитываем допуск (элемент может быть немного ниже уровня)
                     Level nearestLevel = levels
-                        .Where(lvl => z >= lvl.Elevation)
-                        .FirstOrDefault();
+                    .Where(lvl => z >= lvl.Elevation - Tolerance)
+                    .OrderByDescending(lvl => lvl.Elevation)
+                    .FirstOrDefault();
 
-                    if (nearestLevel == null || !levelDict.TryGetValue(nearestLevel, out string floorValue))
+                    if (nearestLevel == null || !levelDict.ContainsKey(nearestLevel))
                         continue;
 
-                    foreach (var target in targets)
+                    string floorValue = levelDict[nearestLevel];
+
+
+                    // Параметр ADSK_Этаж
+                    Parameter param = elem.get_Parameter(dictionaryGUID.ADSKLevel);
+                    if (param == null)
                     {
-                        Parameter param = target.get_Parameter(dictionaryGUID.ADSKLevel);
-                        if (param == null)
-                        {
-                            var builtInCat = (BuiltInCategory)target.Category.Id.IntegerValue;
-                            RevitUtils.AddSharedParameter(doc, "ADSK_Этаж", dictionaryGUID.ADSKLevel, builtInCat);
-                        }
-                        if (param != null && !param.IsReadOnly)
-                            param.Set(floorValue);
+                        continue;
+                        //RevitUtils.AddSharedParameter(doc, "ADSK_Этаж", dictionaryGUID.ADSKLevel, (BuiltInCategory)elem.Category.Id.IntegerValue);
                     }
+
+                    if (param.IsReadOnly)
+                        continue;
+
+                    param.Set(floorValue);
                 }
 
                 tr.Commit();
             }
 
-            TaskDialog.Show("Готово", $"Обработано {processed} элементов.\nПараметр ADSK_Этаж задан.");
+            TaskDialog.Show("Готово", $"Параметр ADSK_Этаж заполнен для элементов.");
             return Result.Succeeded;
         }
     }

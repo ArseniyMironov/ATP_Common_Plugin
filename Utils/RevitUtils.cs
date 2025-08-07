@@ -2,7 +2,6 @@
 using ATP_Common_Plugin.Utils;
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -296,21 +295,6 @@ namespace ATP_Common_Plugin
 
                 tr.Commit();
             }
-
-            //CategorySet categories = app.Create.NewCategorySet();
-            //categories.Insert(doc.Settings.Categories.get_Item(cat));
-
-            //Binding binding = new InstanceBinding(categories);
-
-            //BindingMap map = doc.ParameterBindings;
-            //using (Transaction tx = new Transaction(doc, "Добавить общий параметр"))
-            //{
-            //    tx.Start();
-
-            //    map.Insert(definition, binding, BuiltInParameterGroup.PG_DATA);
-
-            //    tx.Commit();
-            //}
 
             app.SharedParametersFilename = originalFile; // Восстанавливаем оригинальный путь
         }
