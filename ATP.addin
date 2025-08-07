@@ -6,6 +6,7 @@
 		<ClientId>3F14AE80-9CFF-4F92-B5D0-F9439E933DA9</ClientId>
 		<FullClassName>ATP_Common_Plugin.ATP_App</FullClassName>
 		<VendorId>ARMI</VendorId>
+		<Publisher> ATP TLP</Publisher>
 		<VendorDescription>Mironov Arseiny, Arseniy.Mironov@atp-tlp.ru</VendorDescription>
 	</AddIn>
 </RevitAddIns>

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace ATP_Common_Plugin.Utils
 {
-    public static class dictionaryHvacElements
+    public static class DictionaryHvacElements
     {
         // Словарь для соответствия типа и префикса
         private static readonly Dictionary<string, string> _prefixes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

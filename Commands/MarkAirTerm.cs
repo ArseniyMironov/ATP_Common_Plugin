@@ -54,7 +54,7 @@ namespace ATP_Common_Plugin.Commands
                         List<Element> terminals = typeGroup.Value;
 
                         // Получаем префикс для текущего типа
-                        string prefix = dictionaryHvacElements.GetPrefix(terminalType);
+                        string prefix = DictionaryHvacElements.GetPrefix(terminalType);
 
                         // Группируем по ADSK_Марка и сортируем по алфавиту
                         var groupedByMark = terminals
