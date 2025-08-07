@@ -39,7 +39,7 @@ namespace ATP_Common_Plugin.Commands
                     .GroupBy(x => GetAccesoriesType(doc.GetElement(x.GetTypeId()).get_Parameter(BuiltInParameter.ALL_MODEL_MODEL).AsValueString()))
                     .ToDictionary(g => g.Key, g => g.ToList());
 
-                logger.LogInfo("Начато выполнение Mark Duct Accesory", docName);
+                logger.LogInfo("Начало маркировки воздуховодной арматуры", docName);
                 using (Transaction tr = new Transaction(doc, "Маркировка Duct Accessories"))
                 {
                     tr.Start();

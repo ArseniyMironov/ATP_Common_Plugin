@@ -211,8 +211,9 @@ namespace ATP_Common_Plugin
             return isElementInGroup;
         }
 
-        public static void AddSharedParameter(Application app, Document doc, string SharedParameterName, Guid SharedParameterGuid, BuiltInCategory cat)
+        public static void AddSharedParameter(Document doc, string SharedParameterName, Guid SharedParameterGuid, BuiltInCategory cat)
         {
+            Application app = doc.Application;
             string originalFile = app.SharedParametersFilename;
             app.SharedParametersFilename = dictionaryGUID.SharedParameterFilePath;
 

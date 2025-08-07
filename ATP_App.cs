@@ -29,14 +29,17 @@ namespace ATP_Common_Plugin
                 string commandNamespace = "ATP_Common_Plugin.Commands.";
                 // Иконки
                 BitmapImage numbering = new BitmapImage(new Uri("pack://application:,,,/ATP_Common_Plugin;component/Images/numbering.ico"));
-                string numberingIconAuthor = "";
+                string numberingIconAuthor = "Freepik";
                 BitmapImage fix = new BitmapImage(new Uri("pack://application:,,,/ATP_Common_Plugin;component/Images/FixIcon.ico"));
-                string fixIconAuthor = "";
+                string fixIconAuthor = "Freepik";
+                BitmapImage SchemeIco = new BitmapImage(new Uri("pack://application:,,,/ATP_Common_Plugin;component/Images/Scheme.ico"));
+                string shemeIcoAuthor = "Sympnoiaicon";
+                BitmapImage errorCenterIco = new BitmapImage(new Uri("pack://application:,,,/ATP_Common_Plugin;component/Images/ErrorCenter.ico"));
+                string errorCenterIcoAuthor = "Sympnoiaicon";
 
                 // Создание вкладки
                 string HKLStabName = "AT•P HKLS";
                 app.CreateRibbonTab(HKLStabName);
-
 
                 // HKLS
                 // Создание панелей на вкладки
@@ -54,8 +57,8 @@ namespace ATP_Common_Plugin
                     commandNamespace + "ToggleLoggerCommand"
                 )
                 {
-                    LargeImage = fix,
-                    LongDescription = "Центр ошибок собирающий всю информацию об ошибках, предупреждениях и процессах выполнения "
+                    LargeImage = errorCenterIco,
+                    LongDescription = $"Центр ошибок собирающий всю информацию об ошибках, предупреждениях и процессах выполнения. Made by EDD & ARMI, Icon by {errorCenterIcoAuthor}"
                 };
                 PushButton toggleBtn = ribbonPamelHKLSUtils.AddItem(toggleBtnData) as PushButton;
                 // Маркировка
@@ -92,9 +95,9 @@ namespace ATP_Common_Plugin
                 // Создание 3D видов
                 PushButtonData create_3D_Scheme_BtnData = new PushButtonData(name: "Create 3d Scheme", text: "3D Scheme", assemblyName: assemblyName, commandNamespace + "Create3DViews")
                 {
-                    LargeImage = fix,
+                    LargeImage = SchemeIco,
                     ToolTip = "Создание схемы для оформления",
-                    LongDescription = $"Создание изометрических схем по системам. Требует заполненного параметра ИмяСистемы. Made by ARMI, Icon by {fixIconAuthor}"
+                    LongDescription = $"Создание изометрических схем по системам. Требует заполненного параметра ИмяСистемы. Made by ARMI, Icon by {shemeIcoAuthor}"
                 };
                 PushButton create_3D_Scheme_Btn = ribbonPamelHKLSMark.AddItem(create_3D_Scheme_BtnData) as PushButton;
 
