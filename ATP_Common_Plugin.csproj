@@ -86,6 +86,7 @@
   <ItemGroup>
     <Compile Include="ATP_App.cs" />
     <Compile Include="Commands\Create3DViews.cs" />
+    <Compile Include="Commands\FillLevel.cs" />
     <Compile Include="Commands\FillSlope.cs" />
     <Compile Include="Commands\FilterAirTerminalsCommand.cs" />
     <Compile Include="Commands\FixInsulation.cs" />
@@ -136,6 +137,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\ErrorCenter.ico" />
+    <Resource Include="Images\Scheme.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

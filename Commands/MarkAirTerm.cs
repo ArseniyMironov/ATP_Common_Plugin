@@ -41,7 +41,7 @@ namespace ATP_Common_Plugin.Commands
                     .GroupBy(x => GetTerminalType(x.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM).AsValueString()))
                     .ToDictionary(g => g.Key, g => g.ToList());
 
-                logger.LogInfo("Начало выполнения Mark Air Terminals", docName);
+                logger.LogInfo("Начало маркировки воздухораспределителей", docName);
 
                 // Маркируем элементы
                 using (Transaction tr = new Transaction(doc, "Маркировка Air Terminals"))
@@ -98,7 +98,6 @@ namespace ATP_Common_Plugin.Commands
         {
             if (string.IsNullOrEmpty(familyName))
                 return "Неизвестный";
-
             if (familyName.IndexOf("риточн", StringComparison.OrdinalIgnoreCase) >= 0)
                 return "Приточный";
             if (familyName.IndexOf("ытяжн", StringComparison.OrdinalIgnoreCase) >= 0)

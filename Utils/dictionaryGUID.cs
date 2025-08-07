@@ -20,6 +20,7 @@ namespace ATP_Common_Plugin.Utils
         public static Guid ADSKThicknes = new Guid("381b467b-3518-42bb-b183-35169c9bdfb3");
         public static Guid ADSKSizeArea = new Guid("b6a46386-70e9-4b1f-9fdb-8e1e3f18a673");
         public static Guid ADSKSlope = new Guid("80d34cef-47d0-4c21-8409-6305fda3a286");
+        public static Guid ADSKLevel = new Guid("9eabf56c-a6cd-4b5c-a9d0-e9223e19ea3f");
 
         // Парамтеры ATP
         public static Guid ATPMarkScriot = new Guid("bf962560-877e-4870-b390-a649ac64bf7c");

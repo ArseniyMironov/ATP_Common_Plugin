@@ -3,6 +3,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ATP_Common_Plugin.Commands
 {
@@ -22,9 +23,11 @@ namespace ATP_Common_Plugin.Commands
             List<ElementId> elementsToDelete = new List<ElementId>();
 
             // Создаем список категорий для фильтрации (изоляция труб и воздуховодов)
-            IList<BuiltInCategory> cats = new List<BuiltInCategory>();
-            cats.Add(BuiltInCategory.OST_DuctInsulations);
-            cats.Add(BuiltInCategory.OST_PipeInsulations);
+            IList<BuiltInCategory> cats = new List<BuiltInCategory>
+            {
+                BuiltInCategory.OST_DuctInsulations,
+                BuiltInCategory.OST_PipeInsulations
+            };
 
             ElementMulticategoryFilter insulation_filter = new ElementMulticategoryFilter(cats);
 
@@ -43,7 +46,7 @@ namespace ATP_Common_Plugin.Commands
                 logger.LogInfo("Начало выполнения Fix Insulation.", docName);
                  
                 // Обрабатываем каждый элемент изоляции
-                foreach (InsulationLiningBase ins in insulation)
+                foreach (InsulationLiningBase ins in insulation.Cast<InsulationLiningBase>())
                 {
                     // Получаем элемент-основу для изоляции
                     Element host = doc.GetElement(ins.HostElementId);

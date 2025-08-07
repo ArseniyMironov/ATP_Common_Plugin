@@ -47,7 +47,7 @@ namespace ATP_Common_Plugin.Commands
 
                     try
                     {
-                        RevitUtils.AddSharedParameter(app, doc, paramName, dictionaryGUID.ATPHost, BuiltInCat);
+                        RevitUtils.AddSharedParameter(doc, paramName, dictionaryGUID.ATPHost, BuiltInCat);
                         logger.LogInfo("Добавлен параметр ATP_Основа", docName);
                     }
                     catch (Exception ex)
