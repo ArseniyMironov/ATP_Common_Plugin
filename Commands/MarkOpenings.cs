@@ -10,7 +10,7 @@ namespace ATP_Common_Plugin.Commands
 {
     [Regeneration(RegenerationOption.Manual)]
     [Transaction(TransactionMode.Manual)]
-    class MarkOpennings : IExternalCommand
+    class MarkOpenings : IExternalCommand
     {
         private const double LABEL_WIDTH_MM = 30 / 304.8; // примерная ширина марки
         private const double LABEL_HEIGHT_MM = 25 / 304.8; // примерная высота марки

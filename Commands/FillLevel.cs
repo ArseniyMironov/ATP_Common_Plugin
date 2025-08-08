@@ -30,8 +30,8 @@ namespace ATP_Common_Plugin.Commands
 
             if (levels.Count == 0)
             {
-                TaskDialog.Show("Ошибка", "Уровни в модели не найдены.");
-                //logger.LogWarning("Уровни в модели не найдены.", docName);
+                TaskDialog.Show("Ошибка", "Уровни в модели не найдены");
+                //logger.LogWarning("Уровни в модели не найдены", docName);
                 return Result.Failed;
             }
 

@@ -84,7 +84,7 @@ namespace ATP_Common_Plugin
                 splitButtonMarking.AddPushButton(mark_air_termi_BtnData); 
                 splitButtonMarking.AddPushButton(mark_duct_acc_BtnData);
 
-                PushButtonData mark_opennings_BtnData = new PushButtonData(name: "Mark Opennings", text: "Mark Opennings", assemblyName: assemblyName, commandNamespace + "MarkOpennings")
+                PushButtonData mark_opennings_BtnData = new PushButtonData(name: "Mark Openings", text: "Mark Openings", assemblyName: assemblyName, commandNamespace + "MarkOpenings")
                 {
                     LargeImage = numbering,
                     ToolTip = "Маркировка заданий на отверстия на текущем виде",

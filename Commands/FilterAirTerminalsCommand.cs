@@ -125,9 +125,9 @@ namespace ATP_Common_Plugin.Commands
 
                     t.Commit();
 
-                    logger.LogInfo($"Обработано моделей: {archLinks.Count}\n" +
-                        $"Проверено потолков: {totalCeilingsChecked}\n" +
-                        $"Найдено пересечений: {markedCount}", docName);
+                    logger.LogInfo($"Обработано моделей: {archLinks.Count}\n", docName);
+                    logger.LogInfo($"Проверено потолков: {totalCeilingsChecked}", docName);
+                    logger.LogInfo($"Найдено пересечений: {markedCount}", docName);
                 }
 
                 return Result.Succeeded;
