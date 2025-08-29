@@ -35,6 +35,7 @@ namespace ATP_Common_Plugin.Commands
             string testLog = "";
             double koefDucts = 1.1; // Коэфициент запаса воздуховодов
             double koef = 1.2; // Коэфициент запаса
+
             // Ducts
             if (ducts.Count != 0)
             {
@@ -445,10 +446,12 @@ namespace ATP_Common_Plugin.Commands
                                 }
 
                                 if (insMark.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
-                                    || insMark.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0)
+                                    || insMark.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0 
+                                    || insTypeComment.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0 
+                                    || insTypeComment.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0)
                                     newName = $"{insTypeComment} {thickness}{CalculateRightInsulationName(hostOutsideDiam, hostFabric)} для трубопровода {TransformFabric(hostFabric)}";
 
-                                if (insMark.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0)
+                                if (insMark.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0 || insTypeComment.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0)
                                     newName = $"{insTypeComment} {thickness}{CalculateRightInsulationName(hostOutsideDiam, hostFabric)} из вспененного полиэтилена с наружным слоем из полимерной армирующей пленки для трубопровода {TransformFabric(hostFabric)}";
 
                                 // Обработка параметров 
