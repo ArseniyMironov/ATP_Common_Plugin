@@ -31,7 +31,6 @@ namespace ATP_Common_Plugin.Commands
 
                 if (airTerminals.Count == 0)
                 {
-                    //TaskDialog.Show("Ошибка", "В модели нет элементов категории Air Terminal. (Проверьте рабочие наборы)");
                     logger.LogWarning("В модели нет элементов категории Air Terminal. (Проверьте рабочие наборы)", docName);
                     return Result.Cancelled;
                 }
@@ -81,13 +80,11 @@ namespace ATP_Common_Plugin.Commands
                     tr.Commit();
                 }
 
-                //TaskDialog.Show("Готово", "Маркировка воздухораспределителей выполнена!");
                 logger.LogInfo("Маркировка воздухораспределителей выполнена.", docName);
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
-                //TaskDialog.Show("Ошибка", ex.ToString());
                 logger.LogError($"Ошибка! {ex.Message}", docName);
                 return Result.Failed;
             }

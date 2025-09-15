@@ -58,7 +58,7 @@ namespace ATP_Common_Plugin.Commands
                     }
                 }
 
-                TaskDialog.Show("Готово", "Обработка файлов завершена.");
+                TaskDialog.Show("Готово", "Обработка файлов завершена");
                 return Result.Succeeded;
             }
         }

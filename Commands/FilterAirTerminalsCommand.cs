@@ -101,6 +101,8 @@ namespace ATP_Common_Plugin.Commands
                             .Where(c => IsCeilingTypeMatch(c))
                             .ToList();
 
+                        var suspendedCeilings = new List<Ceiling>();
+
                         totalCeilingsChecked += ceilings.Count;
 
                         if (ceilings.Count == 0)
@@ -125,9 +127,9 @@ namespace ATP_Common_Plugin.Commands
 
                     t.Commit();
 
-                    logger.LogInfo($"Обработано моделей: {archLinks.Count}\n" +
-                        $"Проверено потолков: {totalCeilingsChecked}\n" +
-                        $"Найдено пересечений: {markedCount}", docName);
+                    logger.LogInfo($"Обработано моделей: {archLinks.Count}\n", docName);
+                    logger.LogInfo($"Проверено потолков: {totalCeilingsChecked}", docName);
+                    logger.LogInfo($"Найдено пересечений: {markedCount}", docName);
                 }
 
                 return Result.Succeeded;

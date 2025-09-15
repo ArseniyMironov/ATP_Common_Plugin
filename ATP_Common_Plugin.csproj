@@ -93,7 +93,8 @@
     <Compile Include="Commands\MarkAirTerm.cs" />
     <Compile Include="Commands\MarkDictPart.cs" />
     <Compile Include="Commands\MarkDuctAccesories.cs" />
-    <Compile Include="Commands\MarkOpennings.cs" />
+    <Compile Include="Commands\MarkOpenings.cs" />
+    <Compile Include="Commands\MarkPlumbFix.cs" />
     <Compile Include="Commands\Schedule_1_HKLS.cs" />
     <Compile Include="Commands\Schedule_2_HKLS.cs" />
     <Compile Include="Commands\Schedule_3_HKLS.cs" />

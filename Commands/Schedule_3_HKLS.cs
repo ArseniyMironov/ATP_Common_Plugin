@@ -35,6 +35,7 @@ namespace ATP_Common_Plugin.Commands
             string testLog = "";
             double koefDucts = 1.1; // Коэфициент запаса воздуховодов
             double koef = 1.2; // Коэфициент запаса
+
             // Ducts
             if (ducts.Count != 0)
             {
@@ -130,7 +131,7 @@ namespace ATP_Common_Plugin.Commands
                                 RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKCount, ductFittingValue);
                             }
 
-                            string newName = $"{ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ = {thickness}";
+                            string newName = $"{ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ= {thickness}";
 
                             RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKName, newName);
                             RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKSign, ductSize);
@@ -445,10 +446,12 @@ namespace ATP_Common_Plugin.Commands
                                 }
 
                                 if (insMark.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
-                                    || insMark.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0)
+                                    || insMark.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0 
+                                    || insTypeComment.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0 
+                                    || insTypeComment.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0)
                                     newName = $"{insTypeComment} {thickness}{CalculateRightInsulationName(hostOutsideDiam, hostFabric)} для трубопровода {TransformFabric(hostFabric)}";
 
-                                if (insMark.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0)
+                                if (insMark.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0 || insTypeComment.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0)
                                     newName = $"{insTypeComment} {thickness}{CalculateRightInsulationName(hostOutsideDiam, hostFabric)} из вспененного полиэтилена с наружным слоем из полимерной армирующей пленки для трубопровода {TransformFabric(hostFabric)}";
 
                                 // Обработка параметров 
@@ -683,10 +686,15 @@ namespace ATP_Common_Plugin.Commands
             switch (fabric)
             {
                 case "Сшитый полиэтилен": return "из сшитого полиэтилена";
-                case "Сталь": return "из оцинкованной стали";
+                case "Оцинкованная сталь": return "из оцинкованной стали";
+                case "Неоцинкованная сталь": return "из неоцинкованной стали";
+                case "Нержавеющая сталь": return "из нержавеющей стали";
+                case "Сталь": return "из стали";
                 case "Чугун": return "чугунного";
                 case "Полиэтилен": return "из полиэтилена";
                 case "Полипропилен": return "из полипропилена";
+                case "НПВХ": return "из НПВХ";
+                case "Медь": return "из меди";
                 default:return "Не заполнен ADSK_Материал наименование у основы";
             }
         }

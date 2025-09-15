@@ -298,5 +298,93 @@ namespace ATP_Common_Plugin
 
             app.SharedParametersFilename = originalFile; // Восстанавливаем оригинальный путь
         }
+
+        public static void AddSharedParameter(Document doc, string SharedParameterName, Guid SharedParameterGuid, Element elem)
+        {
+            Application app = doc.Application;
+            string originalFile = app.SharedParametersFilename;
+            app.SharedParametersFilename = dictionaryGUID.SharedParameterFilePath;
+            BuiltInCategory cat = (BuiltInCategory)elem.Category.Id.IntegerValue;
+
+            if (cat.Equals(null))
+            {
+                return;
+            }
+
+            DefinitionFile defFile = app.OpenSharedParameterFile();
+            if (defFile == null)
+                throw new Exception("Не удалось открыть файл общих параметров.");
+
+            Definition definition = null;
+
+            foreach (DefinitionGroup group in defFile.Groups)
+            {
+                foreach (Definition def in group.Definitions)
+                {
+                    if (def.Name == SharedParameterName &&
+                        def is ExternalDefinition extDef &&
+                        extDef.GUID == SharedParameterGuid)
+                    {
+                        definition = def;
+                        break;
+                    }
+                }
+
+                if (definition != null)
+                    break;
+            }
+
+            if (definition == null)
+                throw new Exception($"Параметр '{SharedParameterName}' с GUID {SharedParameterGuid} не найден в файле.");
+
+            Category targetCategory = doc.Settings.Categories.get_Item(cat);
+            BindingMap map = doc.ParameterBindings;
+
+            bool bindingExist = map.Contains(definition);
+            bool categoryAlreadyBound = false;
+
+            if (bindingExist)
+            {
+                Binding existingBinding = map.get_Item(definition);
+
+                // Проверяем тип привязки
+                CategorySet existingCategories = null;
+                if (existingBinding is InstanceBinding ib)
+                    existingCategories = ib.Categories;
+                else if (existingBinding is TypeBinding tb)
+                    existingCategories = tb.Categories;
+
+                // Если категория уже есть — ничего не делаем
+                if (existingCategories.Cast<Category>().Any(c => c.Id == targetCategory.Id))
+                {
+                    categoryAlreadyBound = true;
+                }
+                else
+                {
+                    // Добавляем новую категорию в существующий CategorySet
+                    CategorySet newCatSet = app.Create.NewCategorySet();
+                    foreach (Category c in existingCategories)
+                        newCatSet.Insert(c);
+                    newCatSet.Insert(targetCategory);
+
+                    Binding newBinding = (existingBinding is InstanceBinding)
+                        ? (Binding)new InstanceBinding(newCatSet)
+                        : new TypeBinding(newCatSet);
+
+                    map.ReInsert(definition, newBinding, BuiltInParameterGroup.PG_DATA);
+                }
+            }
+            else
+            {
+                // Параметр ещё не был привязан — создаём новую привязку
+                CategorySet newCatSet = app.Create.NewCategorySet();
+                newCatSet.Insert(targetCategory);
+
+                Binding binding = new InstanceBinding(newCatSet);
+                map.Insert(definition, binding, BuiltInParameterGroup.PG_DATA);
+            }
+
+            app.SharedParametersFilename = originalFile; // Восстанавливаем оригинальный путь
+        }
     }
 }

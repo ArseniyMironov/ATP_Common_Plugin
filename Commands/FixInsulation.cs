@@ -87,7 +87,7 @@ namespace ATP_Common_Plugin.Commands
                 tr.Commit(); // Завершаем транзакцию
 
                 // Выводим сообщение о завершении
-                logger.LogInfo($"Изоляция скорректирована. Перенесено {movedCount} элементов, удален {deletedCount} элементов.", docName);
+                logger.LogInfo($"Изоляция скорректирована. Перенесено {movedCount} элементов, удален {deletedCount} элементов", docName);
                 return Result.Succeeded;
             }
         }
