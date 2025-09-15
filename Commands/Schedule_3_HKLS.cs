@@ -131,7 +131,7 @@ namespace ATP_Common_Plugin.Commands
                                 RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKCount, ductFittingValue);
                             }
 
-                            string newName = $"{ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ = {thickness}";
+                            string newName = $"{ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ= {thickness}";
 
                             RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKName, newName);
                             RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKSign, ductSize);
@@ -686,10 +686,15 @@ namespace ATP_Common_Plugin.Commands
             switch (fabric)
             {
                 case "Сшитый полиэтилен": return "из сшитого полиэтилена";
-                case "Сталь": return "из оцинкованной стали";
+                case "Оцинкованная сталь": return "из оцинкованной стали";
+                case "Неоцинкованная сталь": return "из неоцинкованной стали";
+                case "Нержавеющая сталь": return "из нержавеющей стали";
+                case "Сталь": return "из стали";
                 case "Чугун": return "чугунного";
                 case "Полиэтилен": return "из полиэтилена";
                 case "Полипропилен": return "из полипропилена";
+                case "НПВХ": return "из НПВХ";
+                case "Медь": return "из меди";
                 default:return "Не заполнен ADSK_Материал наименование у основы";
             }
         }

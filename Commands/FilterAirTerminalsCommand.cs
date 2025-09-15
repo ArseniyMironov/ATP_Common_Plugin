@@ -101,6 +101,8 @@ namespace ATP_Common_Plugin.Commands
                             .Where(c => IsCeilingTypeMatch(c))
                             .ToList();
 
+                        var suspendedCeilings = new List<Ceiling>();
+
                         totalCeilingsChecked += ceilings.Count;
 
                         if (ceilings.Count == 0)

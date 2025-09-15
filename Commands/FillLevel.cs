@@ -2,6 +2,7 @@
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.Exceptions;
 using Autodesk.Revit.UI;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,13 +51,16 @@ namespace ATP_Common_Plugin.Commands
                 .Where(e => !(e is Level))
                 .ToList();
 
+            int processed = 0;
+            int processedGood = 0;
+
             using (Transaction tr = new Transaction(doc, "Заполнение ADSK_Этаж"))
             {
                 tr.Start();
 
                 foreach (var elem in elementsToProcess)
                 {
-                    if (elem.Location == null && elem.get_BoundingBox(null) == null)
+                    if (elem == null && elem.Location == null && elem.get_BoundingBox(null) == null)
                         continue;
 
                     // Пробуем получить нижнюю Z координату
@@ -64,16 +68,20 @@ namespace ATP_Common_Plugin.Commands
                     if (bbox == null)
                         continue;
 
+                    processed++;
+
                     double z = bbox.Min.Z;
 
                     // Учитываем допуск (элемент может быть немного ниже уровня)
                     Level nearestLevel = levels
-                    .Where(lvl => z >= lvl.Elevation - Tolerance)
-                    .OrderByDescending(lvl => lvl.Elevation)
-                    .FirstOrDefault();
+                        .Where(lvl => z >= lvl.Elevation - Tolerance)
+                        .OrderByDescending(lvl => lvl.Elevation)
+                        .FirstOrDefault();
 
                     if (nearestLevel == null || !levelDict.ContainsKey(nearestLevel))
+                    {
                         continue;
+                    }
 
                     string floorValue = levelDict[nearestLevel];
 
@@ -82,20 +90,27 @@ namespace ATP_Common_Plugin.Commands
                     Parameter param = elem.get_Parameter(dictionaryGUID.ADSKLevel);
                     if (param == null)
                     {
-                        continue;
-                        //RevitUtils.AddSharedParameter(doc, "ADSK_Этаж", dictionaryGUID.ADSKLevel, (BuiltInCategory)elem.Category.Id.IntegerValue);
+                        try
+                        {
+                            //RevitUtils.AddSharedParameter(doc, "ADSK_Этаж", dictionaryGUID.ADSKLevel, elem);
+                        }
+                        catch
+                        {
+                            continue;
+                        }
                     }
 
                     if (param.IsReadOnly)
                         continue;
 
                     param.Set(floorValue);
+                    processedGood++;
                 }
 
                 tr.Commit();
             }
 
-            TaskDialog.Show("Готово", $"Параметр ADSK_Этаж заполнен для элементов.");
+            TaskDialog.Show("Готово", $"Параметр ADSK_Этаж заполнен для {processed} элементов, нормально {processedGood}");
             return Result.Succeeded;
         }
     }
