@@ -44,9 +44,9 @@ namespace ATP_Common_Plugin
                 // HKLS
                 // Создание панелей на вкладки
                 RibbonPanel ribbonPamelHKLSMark = app.CreateRibbonPanel(HKLStabName, "Оформление");
-                RibbonPanel ribbonPamelHKLSUtils = app.CreateRibbonPanel(HKLStabName, "Утилиты");
                 RibbonPanel ribbonPanelHKLSSchedule = app.CreateRibbonPanel(HKLStabName, "Спецификация");
                 RibbonPanel ribbonPanelHKLSTask = app.CreateRibbonPanel(HKLStabName, "Задания");
+                RibbonPanel ribbonPamelHKLSUtils = app.CreateRibbonPanel(HKLStabName, "Утилиты");
 
 
                 // Создание кнопки для управления логгером
@@ -84,13 +84,21 @@ namespace ATP_Common_Plugin
                 splitButtonMarking.AddPushButton(mark_air_termi_BtnData); 
                 splitButtonMarking.AddPushButton(mark_duct_acc_BtnData);
 
-                PushButtonData mark_opennings_BtnData = new PushButtonData(name: "Mark Openings", text: "Mark Openings", assemblyName: assemblyName, commandNamespace + "MarkOpenings")
+                PushButtonData mark_opennings_BtnData = new PushButtonData(name: "Mark Openings", text: "Mark Drains", assemblyName: assemblyName, commandNamespace + "MarkPlumbFix")
+                {
+                    LargeImage = numbering,
+                    ToolTip = "Маркировка трапов",
+                    LongDescription = "Маркирует элементы категории Plumbing Fixtures содержащие «Трап» в параметре Model разделяя их посистемно и сортируя сначала по высоте, затем по значению координаты X,затем по значению координаты Y. Маркировка записывается в парамметр ATP_Маркировка_Скрипт. Made by ARMI, Icon by {numberingIconAuthor}"
+                };
+                PushButton mark_opennings = ribbonPamelHKLSMark.AddItem(mark_opennings_BtnData) as PushButton;
+                // Маркировка трапов
+                PushButtonData mark_PlumbFix_BtnData = new PushButtonData(name: "Mark Plumb Fixt", text: "Mark Openings", assemblyName: assemblyName, commandNamespace + "MarkOpenings")
                 {
                     LargeImage = numbering,
                     ToolTip = "Маркировка заданий на отверстия на текущем виде",
                     LongDescription = "Первичная маркировка заданий на отверстия"
                 };
-                PushButton mark_opennings = ribbonPamelHKLSMark.AddItem(mark_opennings_BtnData) as PushButton;
+                PushButton mark_plumbFix = ribbonPamelHKLSMark.AddItem(mark_PlumbFix_BtnData) as PushButton;
 
                 // Создание 3D видов
                 PushButtonData create_3D_Scheme_BtnData = new PushButtonData(name: "Create 3d Scheme", text: "3D Scheme", assemblyName: assemblyName, commandNamespace + "Create3DViews")
