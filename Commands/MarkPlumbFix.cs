@@ -16,6 +16,7 @@ namespace ATP_Common_Plugin.Commands
         private const string SearchToken = "Трап";  // что ищем в параметре Model
         private const string Prefix = "ВВ";        // префикс перед аббревиатурой системы
 
+        [Obsolete]
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;

@@ -305,11 +305,11 @@ namespace ATP_Common_Plugin.Commands
                                 || pipeMark == "RAUTITAN pink") 
                                 newSign = $"{marker}{stringOusideDiam}x{thickness}";
 
-                            else if (pipeMark == "ГОСТ 3262-75"
-                                || pipeMark == "ЕN 12735-2")
+                            else if (pipeMark == "ЕN 12735-2")
                                 newSign = $"{marker}{stringOusideDiam}x{thickness}";
 
-                            else if (pipeMark == "ГОСТ Р 52318-2005" 
+                            else if (pipeMark == "ГОСТ 3262-75"
+                                || pipeMark == "ГОСТ Р 52318-2005" 
                                 || pipeMark == "ГОСТ Р 52318-2005")
                                 newSign = $"{marker}{diameter},0x{thickness}";
 
