@@ -14,7 +14,7 @@ namespace ATP_Common_Plugin.Commands
     class MarkPlumbFix : IExternalCommand
     {
         private const string SearchToken = "Трап";  // что ищем в параметре Model
-        private const string Prefix = "ВВ";        // префикс перед аббревиатурой системы
+        private const string Prefix = "";        // префикс перед аббревиатурой системы
 
         [Obsolete]
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
@@ -76,7 +76,7 @@ namespace ATP_Common_Plugin.Commands
             // 4) Группировка по System Abbreviation
             var groups = items.GroupBy(i => i.SystemAbbr);
 
-            int totalChanged = 0;
+            int totalChanged = 0; 
 
             using (var t = new Transaction(doc, "ВВ: нумерация сантехприборов"))
             {
@@ -92,7 +92,7 @@ namespace ATP_Common_Plugin.Commands
                     int index = 1; // порядковый номер внутри группы
                     foreach (var it in ordered)
                     {
-                        string value = $"{Prefix}-{g.Key}-{index}";
+                        string value = $"{g.Key}-{index}";
                         var markParam = it.Instance.get_Parameter(dictionaryGUID.ATPMarkScriot);
                         if (markParam != null && !markParam.IsReadOnly)
                         {
