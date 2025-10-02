@@ -64,7 +64,7 @@ namespace ATP_Common_Plugin.Commands
                             ForgeTypeId countUnit = UnitTypeId.Meters;
 
                             // Генерация новых значений
-                            string newName = $"{ductType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ= {thickness}";
+                            string newName = $"{ductType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize} δ = {thickness}";
                             double newCount = Int32.Parse(paramLength.AsValueString());
                             double.TryParse(thickness.Trim(), out double newThickness);
 
