@@ -59,10 +59,13 @@ namespace ATP_Common_Plugin.Commands
                 if (p == null) continue;
 
                 string abbr = GetSystemAbbreviation(fi, doc);
+                string sysName = GetSystemName(fi);
+
                 items.Add(new TagItem
                 {
                     Instance = fi,
                     SystemAbbr = string.IsNullOrWhiteSpace(abbr) ? "NA" : abbr.Trim(),
+                    SystemName = string.IsNullOrWhiteSpace(sysName) ? "NA" : sysName.Trim(),
                     P = p
                 });
             }
@@ -87,7 +90,8 @@ namespace ATP_Common_Plugin.Commands
                     // 5) Сортировка: Z ↑, затем X ↑, затем Y ↑
                     var ordered = g.OrderByDescending(i => i.P.Z)
                                    .ThenBy(i => i.P.X)
-                                   .ThenBy(i => i.P.Y);
+                                   .ThenBy(i => i.P.Y)
+                                   .ThenBy(i => i.SystemName, StringComparer.OrdinalIgnoreCase);
 
                     int index = 1; // порядковый номер внутри группы
                     foreach (var it in ordered)
@@ -146,6 +150,29 @@ namespace ATP_Common_Plugin.Commands
         }
 
         /// <summary>
+        /// Возвращает имя системы (System Name) для FamilyInstance по первому найденному коннектору.
+        /// Фолбэк: "NA".
+        /// </summary>
+        private static string GetSystemName(FamilyInstance fi)
+        {
+            var mep = fi?.MEPModel;
+            var cm = mep?.ConnectorManager;
+            if (cm == null) return "NA";
+
+            foreach (Connector c in cm.Connectors)
+            {
+                var sys = c.MEPSystem;
+                if (sys == null) continue;
+
+                // Имя системы
+                if (!string.IsNullOrWhiteSpace(sys.Name))
+                    return sys.Name;
+            }
+            return "NA";
+        }
+
+
+        /// <summary>
         /// Безопасное чтение строкового параметра по BuiltInParameter.
         /// </summary>
         private static string ReadString(Element e, BuiltInParameter bip)
@@ -174,6 +201,7 @@ namespace ATP_Common_Plugin.Commands
         {
             public FamilyInstance Instance;
             public string SystemAbbr;
+            public string SystemName;
             public XYZ P;
         }
     }
