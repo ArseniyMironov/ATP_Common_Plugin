@@ -5,7 +5,9 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using Parameter = Autodesk.Revit.DB.Parameter;
 
 namespace ATP_Common_Plugin.Commands
 {
@@ -24,86 +26,49 @@ namespace ATP_Common_Plugin.Commands
 
             string log = "";
 
+            IList<Element> airTerms = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_DuctTerminal);
             IList<Element> mechEquip = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_MechanicalEquipment);
             IList<Element> plumbFix = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_PlumbingFixtures);
             IList<Element> ductFittings = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_DuctFitting);
             IList<Element> ductAccessory = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_DuctAccessory);
             IList<Element> pipeFittings = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_PipeFitting);
             IList<Element> pipeAccessory = selecttionBuiltInInstance.selectInstanceOfCategory(doc, BuiltInCategory.OST_PipeAccessory);
+
+            var batches = new (string title, IList<Element> elems)[]
+            {
+                ("Обработка вложенных элементов сантехнических приборов", plumbFix),
+                ("Обработка вложенных элементов оборудования", mechEquip),
+                ("Обработка вложенных элементов воздухораспределителей", airTerms),
+                ("Обработка вложенных элементов арматуры воздуховодов", ductAccessory),
+                ("Обработка вложенных элементов фитингов воздуховодов", ductFittings),
+                ("Обработка вложенных элементов арматуры трубопроводов", pipeAccessory),
+                ("Обработка вложенных элементов фитингов трубопроводов", pipeFittings),
+            };
+
             try
             {
-                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов сантехнических приборов"))
+                foreach (var (title, elems) in batches)
                 {
-                    logger.LogInfo("Начало обработки вложенных элементов сантехнических приборов", docName);
-                    tr.Start();
+                    using (var tr = new Transaction(doc, title))
+                    {
+                        logger.LogInfo("Начало: " + title, docName);
+                        tr.Start();
 
-                    SetDependentElemParam(doc, plumbFix, ref log);
+                        SetDependentElemParam(doc, elems, ref log);
 
-                    tr.Commit();
-                    logger.LogInfo("Завершение обработки вложенных элементов сантехнических приборов", docName);
-                }
-
-                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов оборудования"))
-                {
-                    logger.LogInfo("Начало обработки вложенных элементов оборудования", docName);
-                    tr.Start();
-
-                    SetDependentElemParam(doc, mechEquip, ref log);
-
-                    tr.Commit();
-                    logger.LogInfo("Завершение обработки вложенных элементов оборудования", docName);
-                }
-
-                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов арматуры воздуховодов"))
-                {
-                    logger.LogInfo("Начало обработки вложенных элементов арматуры воздуховодов", docName);
-                    tr.Start();
-
-                    SetDependentElemParam(doc, ductAccessory, ref log);
-
-                    tr.Commit();
-                    logger.LogInfo("Завершение обработки вложенных элементов арматуры воздуховодов", docName);
-                }
-
-                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов фитингов воздуховодов"))
-                {
-                    logger.LogInfo("Начало обработки вложенных элементов фитингов воздуховодов", docName);
-                    tr.Start();
-
-                    SetDependentElemParam(doc, ductFittings, ref log);
-
-                    tr.Commit();
-                    logger.LogInfo("Завершение обработки вложенных элементов фитингов воздуховодов", docName);
-                }
-
-                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов арматуры трубопроводов"))
-                {
-                    logger.LogInfo("Начало обработки вложенных элементов арматуры трубопроводов", docName);
-                    tr.Start();
-
-                    SetDependentElemParam(doc, pipeAccessory, ref log);
-
-                    tr.Commit();
-                    logger.LogInfo("Завершение обработки вложенных элементов арматуры трубопроводов", docName);
-                }
-
-                using (Transaction tr = new Transaction(doc, "Обработка вложенных элементов фитингов трубопроводов"))
-                {
-                    logger.LogInfo("Начало обработки вложенных элементов фитингов трубопроводов", docName);
-                    tr.Start();
-
-                    SetDependentElemParam(doc, pipeFittings, ref log);
-
-                    tr.Commit();
-                    logger.LogInfo("Завершение обработки вложенных элементов фитингов трубопроводов", docName);
+                        tr.Commit();
+                        logger.LogInfo("Завершение: " + title, docName);
+                    }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                logger.LogError($"Непредвиденная ошибка: {log}", docName);
+                logger.LogError($"Непредвиденная ошибка: {ex}", docName);
+                TaskDialog.Show("Ok", $"mem {ex}");
                 return Result.Failed;
             }
             logger.LogInfo("Параметры переданы во вложенные семейства", docName);
+            TaskDialog.Show("Ok", "lol");
             return Result.Succeeded;
         }
 
@@ -116,8 +81,10 @@ namespace ATP_Common_Plugin.Commands
         private void SetDependentElemParam(Document doc, IList<Element> mass_elements, ref string log)
         {
             string docName = doc.Title;
-            double komp_index = 0.01;
-            Dictionary<string, Dictionary<string, double>> setDict = new Dictionary<string, Dictionary<string, double>>();
+
+            const double KompStep = 0.01;
+            const double SubStep = 0.0001; 
+            Dictionary<string, double> setDict = new Dictionary<string, double>();
 
             var logger = ATP_App.GetService<ILoggerService>();
             if (mass_elements.Count > 0)
@@ -129,72 +96,112 @@ namespace ATP_Common_Plugin.Commands
                         // Get all parameters from host
                         if (!(host is FamilyInstance hostInstance)) continue;
 
-                        string hostName = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKName) ?? "У основного элемнта не заполнен ADSK_Наименования";
-                        string hostSystemName = RevitUtils.GetProjectParameterValue(host, "ИмяСистемы");
-                        string hostKomp = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKKomp) ?? "Оборудование без компекта";
-                        string hostGroupString = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKGroup).Split('.').First();
-                        bool isGroupCorrect = Double.TryParse($"{hostGroupString}", out double hostGroup);
-
-                        if (isGroupCorrect == false)
+                        string hostName = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKName) ?? "У основного элемента не заполнен ADSK_Наименование";
+                        string hostMark = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKMark) ?? "У основного элемента не заполнен ADSK_Марка";
+                        string hostKey = hostName + " | " + hostMark;
+                        string hostSystemName = RevitUtils.GetProjectParameterValue(host, "ИмяСистемы") ?? "Элемент без системы";
+                        string hostKomp = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKKomp) ?? "У основного элемента не заполнен ADSK_Комплект";
+                        string hostLvl = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKLevel) ?? "У основного элемента не заполнен ADSK_Этаж";
+                        string hostGroupString = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKGroup);
+                        double hostGroup;
+                        bool isGroupCorrect = double.TryParse(hostGroupString, NumberStyles.Float, CultureInfo.InvariantCulture, out hostGroup);
+                        if (!isGroupCorrect || hostGroup % 1 != 0 || hostGroup < 1 || hostGroup > 7)
                         {
-                            logger.LogWarning($"{host.Id} - Параметр ADSK_Группирование заполнене некорректно", docName);
+                            logger.LogWarning($"{host.Id} - ADSK_Группирование должно быть целым 1..7", docName);
                             continue;
                         }
 
                         double setNumber = hostGroup;
 
                         // Get and set all parameters of sub elements
-                        IList<Element> subElements = hostInstance.GetSubComponentIds()
+                        var subElements = hostInstance.GetSubComponentIds()
                             .Select(id => doc.GetElement(id))
                             .Where(e => e != null)
                             .ToList();
 
-                        if (subElements.Count > 0)
+                        if (subElements.Count == 0) continue;
+
+                        Parameter pHostGroup = host.get_Parameter(dictionaryGUID.ADSKGroup);
+                        bool hostGroupWritable = pHostGroup != null && !pHostGroup.IsReadOnly;
+                        if (!hostGroupWritable)
                         {
-                            double element_position = 0.0001;
-                            foreach (Element subElem in subElements)
+                            foreach (var id in ((FamilyInstance)host).GetSubComponentIds())
                             {
-                                RevitUtils.SetParameterValue(subElem, dictionaryGUID.ADSKKomp, hostKomp);
-                                RevitUtils.SetParameterValue(subElem, "ИмяСистемы", hostSystemName);
-
-                                if (hostGroup == 0)
-                                {
-                                    logger.LogWarning($"{host.Id} - У основы не заполнен параметр ADSK_Группирование", docName);
-                                    continue;
-                                }
-
-                                if (host.Category.Name.Contains("Fitting") || host.Category.Name.Contains("оединительн"))
-                                {
-                                    RevitUtils.SetParameterValue(subElem, dictionaryGUID.ADSKGroup, hostGroup); 
-                                    continue;
-                                }
-
-                                // Get number of set and put new number to setDictionary
-                                setNumber += komp_index;
-                                if (setDict.TryGetValue(hostSystemName, out var innerDict))
-                                {
-                                    if (innerDict.TryGetValue(hostName, out double existingValue))
-                                    {
-                                        setNumber = existingValue;
-                                    }
-                                    else
-                                    {
-                                        setNumber = (innerDict.Count > 0) ? innerDict.Values.Max() + 0.01 : 0.01;
-                                        innerDict.Add(hostName, setNumber);
-                                    }
-                                }
-                                else
-                                {
-                                    setNumber = hostGroup + 0.01;
-                                    setDict.Add(hostSystemName, new Dictionary<string, double> { { hostName, setNumber } });
-                                }
-
-                                RevitUtils.SetParameterValue(subElem, dictionaryGUID.ADSKGroup, $"{setNumber + element_position}");
-                                element_position += 0.0001;
+                                var sub = doc.GetElement(id);
+                                if (sub == null) continue;
+                                RevitUtils.SetParameterValue(sub, "ИмяСистемы", hostSystemName);
+                                RevitUtils.SetParameterValue(sub, dictionaryGUID.ADSKKomp, hostKomp);
+                                RevitUtils.SetParameterValue(sub, dictionaryGUID.ADSKLevel, hostLvl);
                             }
-                            RevitUtils.SetParameterValue(host, dictionaryGUID.ADSKGroup, $"{setNumber}00");
-                            element_position = 0.0001;
+                            log += $"{host.Id} - Параметр ADSK_Группирование недоступен для записи\n";
+                            continue; 
                         }
+
+                        int subIndex = 1;
+                        var subNameMarkMap = new Dictionary<string, double>();
+
+                        foreach (Element subElem in subElements)
+                        {
+                            if (hostGroup == 0)
+                            {
+                                logger.LogWarning($"{host.Id} - У основы не заполнен параметр ADSK_Группирование", docName);
+                                continue;
+                            }
+
+                            if (host.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctFitting 
+                                || host.Category.Id.IntegerValue == (int)BuiltInCategory.OST_PipeFitting)
+                            {
+                                RevitUtils.SetParameterValue(subElem, "ИмяСистемы", hostSystemName);
+                                RevitUtils.SetParameterValue(subElem, dictionaryGUID.ADSKGroup, "4");
+                                continue;
+                            }
+
+                            // Get number of set and put new number to setDictionary
+                            double existing;
+                            if (setDict.TryGetValue(hostKey, out existing))
+                            {
+                                setNumber = existing;
+                            }
+                            else
+                            {
+                                double next = setDict.Count > 0
+                                    ? Math.Round(setDict.Values.Max() + KompStep, 4)
+                                    : Math.Round(hostGroup + KompStep, 4);
+
+                                setNumber = next;
+                                setDict[hostKey] = setNumber;
+                            }
+
+                            string subName = RevitUtils.GetSharedParameterValue(subElem, dictionaryGUID.ADSKName)
+                                ?? RevitUtils.GetSharedParameterValue(doc.GetElement(subElem.GetTypeId()), dictionaryGUID.ADSKName)
+                                ?? string.Empty;
+
+                            string subMark = RevitUtils.GetSharedParameterValue(subElem, dictionaryGUID.ADSKMark)
+                                ?? RevitUtils.GetSharedParameterValue(doc.GetElement(subElem.GetTypeId()), dictionaryGUID.ADSKMark)
+                                ?? string.Empty;
+
+                            string subKey = subName + " | " + subMark;
+
+                            double subNumber;
+                            if (subNameMarkMap.TryGetValue(subKey, out subNumber))
+                            {
+                                // уже назначали для такой пары — оставляем прежнее число
+                            }
+                            else
+                            {
+                                subNumber = Math.Round(setNumber + subIndex * SubStep, 4);
+                                subNameMarkMap[subKey] = subNumber;
+                                subIndex++; // следующий «новый» sub получит следующий хвост
+                            }
+
+                            // 3) Записываем (ровно 4 знака, инвариантная точка)
+                            string subVal = subNumber.ToString("0.0000", CultureInfo.InvariantCulture);
+                            RevitUtils.SetParameterValue(subElem, dictionaryGUID.ADSKGroup, subVal);
+
+                        }
+
+                        string hostVal = setNumber.ToString("0.0000", CultureInfo.InvariantCulture);
+                        RevitUtils.SetParameterValue(host, dictionaryGUID.ADSKGroup, hostVal);
                     }
                     catch (Exception ex)
                     {
