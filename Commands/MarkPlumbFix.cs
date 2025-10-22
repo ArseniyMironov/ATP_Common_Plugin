@@ -14,6 +14,7 @@ namespace ATP_Common_Plugin.Commands
     class MarkPlumbFix : IExternalCommand
     {
         private const string SearchToken = "Трап";  // что ищем в параметре Model
+        private const string SearchNested = "Вложенное";
         private const string Prefix = "";        // префикс перед аббревиатурой системы
 
         [Obsolete]
@@ -30,13 +31,19 @@ namespace ATP_Common_Plugin.Commands
 
             // 2) Фильтр по встроенному параметру "Model" (ALL_MODEL_MODEL) содержит "710"
             //    Используем параметр-фильтр по подстроке (без учета регистра).
-            var pvp = new ParameterValueProvider(new ElementId(BuiltInParameter.ALL_MODEL_MODEL));
+            var pvpModel = new ParameterValueProvider(new ElementId(BuiltInParameter.ALL_MODEL_MODEL));
+            var pvpDescription = new ParameterValueProvider(new ElementId(BuiltInParameter.ALL_MODEL_DESCRIPTION));
             var contains = new FilterStringContains();
-            var rule = new FilterStringRule(pvp, contains, SearchToken, false);
-            var filter = new ElementParameterFilter(rule);
+            var doesNotContains = new FilterStringContains();
+            var rule1 = new FilterStringRule(pvpModel, contains, SearchToken, false);
+            var rule2 = new FilterStringRule(pvpDescription, contains, SearchNested, false);
+            var filter = new ElementParameterFilter(rule1);
+            var filter2 = new ElementParameterFilter(rule2, true);
 
             IList<Element> candidates = col
                 .WherePasses(filter)
+                .WherePasses(filter2)
+                .Where(t => !(t.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM).AsValueString().Contains("020_Времен")))
                 .Where(e => (e as FamilyInstance)?.SuperComponent == null)
                 .ToList();
 
@@ -60,12 +67,14 @@ namespace ATP_Common_Plugin.Commands
 
                 string abbr = GetSystemAbbreviation(fi, doc);
                 string sysName = GetSystemName(fi);
+                string lvl = GetLevel(fi, doc);
 
                 items.Add(new TagItem
                 {
                     Instance = fi,
                     SystemAbbr = string.IsNullOrWhiteSpace(abbr) ? "NA" : abbr.Trim(),
                     SystemName = string.IsNullOrWhiteSpace(sysName) ? "NA" : sysName.Trim(),
+                    Level = string.IsNullOrWhiteSpace(lvl) ? "NA" : lvl.Trim(),
                     P = p
                 });
             }
@@ -87,23 +96,27 @@ namespace ATP_Common_Plugin.Commands
 
                 foreach (var g in groups)
                 {
+                    var phyzicalGroups = g.GroupBy(j => j.SystemName);
+
+                    foreach (var pg in phyzicalGroups)
+                    {
                     // 5) Сортировка: Z ↑, затем X ↑, затем Y ↑
-                    var ordered = g.OrderByDescending(i => i.P.Z)
+                    var ordered = g.OrderBy(i => i.Level)
                                    .ThenBy(i => i.P.X)
-                                   .ThenBy(i => i.P.Y)
-                                   .ThenBy(i => i.SystemName, StringComparer.OrdinalIgnoreCase);
+                                   .ThenBy(i => i.P.Y);
 
                     int index = 1; // порядковый номер внутри группы
-                    foreach (var it in ordered)
-                    {
-                        string value = $"{g.Key}-{index}";
-                        var markParam = it.Instance.get_Parameter(dictionaryGUID.ATPMarkScriot);
-                        if (markParam != null && !markParam.IsReadOnly)
+                        foreach (var it in ordered)
                         {
-                            markParam.Set(value);
-                            totalChanged++;
+                            string value = $"{g.Key}-{index}";
+                            var markParam = it.Instance.get_Parameter(dictionaryGUID.ATPMarkScriot);
+                            if (markParam != null && !markParam.IsReadOnly)
+                            {
+                                markParam.Set(value);
+                                totalChanged++;
+                            }
+                            index++;
                         }
-                        index++;
                     }
                 }
 
@@ -171,6 +184,15 @@ namespace ATP_Common_Plugin.Commands
             return "NA";
         }
 
+        private static string GetLevel(FamilyInstance fi, Document doc)
+        {
+            var lvlId = fi?.LevelId;
+            var lvl = doc.GetElement(lvlId)?.Name; 
+            if (lvl == null) 
+                lvl ="NA";
+
+            return lvl;
+        }
 
         /// <summary>
         /// Безопасное чтение строкового параметра по BuiltInParameter.
@@ -202,6 +224,7 @@ namespace ATP_Common_Plugin.Commands
             public FamilyInstance Instance;
             public string SystemAbbr;
             public string SystemName;
+            public string Level;
             public XYZ P;
         }
     }
