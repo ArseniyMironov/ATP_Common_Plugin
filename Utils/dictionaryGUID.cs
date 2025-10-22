@@ -18,9 +18,11 @@ namespace ATP_Common_Plugin.Utils
         public static Guid ADSKUnit = new Guid("4289cb19-9517-45de-9c02-5a74ebf5c86d");
         public static Guid ADSKCount = new Guid("8d057bb3-6ccd-4655-9165-55526691fe3a");
         public static Guid ADSKThicknes = new Guid("381b467b-3518-42bb-b183-35169c9bdfb3");
-        public static Guid ADSKSizeArea = new Guid("b6a46386-70e9-4b1f-9fdb-8e1e3f18a673");
         public static Guid ADSKSlope = new Guid("80d34cef-47d0-4c21-8409-6305fda3a286");
         public static Guid ADSKLevel = new Guid("9eabf56c-a6cd-4b5c-a9d0-e9223e19ea3f");
+        public static Guid ADSKSizeAngle = new Guid("a7397d18-200b-4659-b34c-3d8ae1c54317");
+        public static Guid ADSKSizeArea = new Guid("b6a46386-70e9-4b1f-9fdb-8e1e3f18a673");
+        public static Guid ADSKSizeVolume = new Guid("e935d9ac-6d98-4844-9f52-8f80aac9c462");
 
         // Парамтеры ATP
         public static Guid ATPMarkScriot = new Guid("bf962560-877e-4870-b390-a649ac64bf7c");
