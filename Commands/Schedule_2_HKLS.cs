@@ -64,11 +64,9 @@ namespace ATP_Common_Plugin.Commands
             catch (Exception ex)
             {
                 logger.LogError($"Непредвиденная ошибка: {ex}", docName);
-                TaskDialog.Show("Ok", $"mem {ex}");
                 return Result.Failed;
             }
             logger.LogInfo("Параметры переданы во вложенные семейства", docName);
-            TaskDialog.Show("Ok", "lol");
             return Result.Succeeded;
         }
 
