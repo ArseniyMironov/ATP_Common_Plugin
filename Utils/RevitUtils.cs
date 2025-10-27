@@ -47,27 +47,30 @@ namespace ATP_Common_Plugin
             try
             {
                 Parameter param = element.get_Parameter(paramGuid);
+
                 bool isElemInGroup = element.GroupId.IntegerValue != -1;
 
-                if (param == null && (!param.IsReadOnly))
+                if (param == null)
                 {
-                    //TaskDialog.Show("Ошибка", $"Параметр {param.Name} отсутствует у элемента {elemetn.Id}"); // ПЕРЕНЕСТИ В ЛОГЕР
-                    logger.LogWarning($"Параметр {param} отсутствует у элемента {element.Id}");
+                    logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}");
                     return;
                 }
-
+                if (param.IsReadOnly)
+                {
+                    logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения");
+                    return;
+                }
                 if (isElemInGroup)
                 {
                     logger.LogWarning($"Элемент {element.Id} в группе");
                     return;
                 }
 
-                string oldValue = element.get_Parameter(paramGuid).AsValueString();
-
-                if (!param.IsReadOnly && param.StorageType == StorageType.String && value != oldValue)
+                if (param.StorageType == StorageType.String)
                 {
-                    param.Set(value);
-                    return;
+                    string oldValue = param.AsString();
+                    if (!string.Equals(value, oldValue))
+                        param.Set(value);
                 }
             }
             catch
@@ -78,50 +81,66 @@ namespace ATP_Common_Plugin
         public static void SetParameterValue(Element element, string paramName, string value)
         {
             Parameter param = element.LookupParameter(paramName);
-            bool isElemInGroup = element.GroupId.IntegerValue != -1;
+
             var logger = ATP_App.GetService<ILoggerService>();
 
-            if (param == null && (!param.IsReadOnly))
+            bool isElemInGroup = element.GroupId.IntegerValue != -1;
+
+            if (param == null)
             {
-                //TaskDialog.Show("Ошибка", $"Параметр {param.Name} отсутствует у элемента {elemetn.Id}");
-                logger.LogWarning($"Параметр {param} отсутствует у элемента {element.Id}");
+                logger.LogWarning($"Параметр '{paramName}' отсутствует у элемента {element.Id}");
                 return;
             }
-
+            if (param.IsReadOnly)
+            {
+                logger.LogWarning($"Параметр '{paramName}' у элемента {element.Id} только для чтения");
+                return;
+            }
             if (isElemInGroup)
             {
                 logger.LogWarning($"Элемент {element.Id} в группе");
                 return;
             }
 
-            string oldValue = param.AsValueString();
-
-            if (!param.IsReadOnly && param.StorageType == StorageType.String && value != oldValue)
+            if (param.StorageType == StorageType.String)
             {
-                param.Set(value);
+                string oldValue = param.AsString();
+                if (!string.Equals(value, oldValue))
+                    param.Set(value);
             }
         }
         public static void SetParameterValue(Element element, Guid paramGuid, double value)
         {
             Parameter param = element.get_Parameter(paramGuid);
-            bool isElemInGroup = element.GroupId.IntegerValue != -1;
             var logger = ATP_App.GetService<ILoggerService>();
 
-            if (param == null && (!param.IsReadOnly))
+            bool isElemInGroup = element.GroupId.IntegerValue != -1;
+
+            if (param == null)
             {
-                //TaskDialog.Show("Ошибка", $"Параметр {param.Name} отсутствует у элемента {elemetn.Id}");
-                logger.LogWarning($"Параметр {param} отсутствует у элемента {element.Id}");
+                logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}");
+                return;
+            }
+            if (param.IsReadOnly)
+            {
+                logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения");
+                return;
+            }
+            if (isElemInGroup)
+            {
+                logger.LogWarning($"Элемент {element.Id} в группе");
+                return;
+            }
+            if (param.StorageType != StorageType.Double)
+            {
+                logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} не Double");
                 return;
             }
 
-
-            double oldValue = element.get_Parameter(paramGuid).AsDouble();
-
-            if (!param.IsReadOnly && value != oldValue) 
-            {
+            double oldValue = param.AsDouble();
+            const double Tol = 1e-9;
+            if (Math.Abs(value - oldValue) > Tol)
                 param.Set(value);
-                return;
-            }
         }
 
         /// <summary>

@@ -46,6 +46,7 @@ namespace ATP_Common_Plugin
                 RibbonPanel ribbonPamelHKLSMark = app.CreateRibbonPanel(HKLStabName, "Оформление");
                 RibbonPanel ribbonPanelHKLSSchedule = app.CreateRibbonPanel(HKLStabName, "Спецификация");
                 RibbonPanel ribbonPanelHKLSTask = app.CreateRibbonPanel(HKLStabName, "Задания");
+                RibbonPanel calcPanel = app.CreateRibbonPanel(HKLStabName, "Расчеты");
                 RibbonPanel ribbonPamelHKLSUtils = app.CreateRibbonPanel(HKLStabName, "Утилиты");
 
 
@@ -164,6 +165,23 @@ namespace ATP_Common_Plugin
                     LongDescription = $"Заполнение параметра ATP_Основа в воздухораспределителях необходимого для задания АР. Made by SHKA & ARMI, Icon by {numberingIconAuthor}" 
                 };
                 PushButton HVAC_AirTerminal_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_AirTerminal_Task_BtnData) as PushButton;
+
+                // Calculation
+                // Экспорт данных для таблицы теплопотерь /  теплопритоков
+
+                var btnData = new PushButtonData(
+                    name: "ExportSpacesEnvelope",
+                    text: "Spaces Envelope\nExport",
+                    assemblyName: assemblyName,
+                    className: commandNamespace + "Calculation.SpacesEnvelopeExport.ExportSpacesEnvelopeCommand"
+                )
+                {
+                    ToolTip = "Экспликация Spaces и наружных ограждений (A/B/площадь/ориентация) с экспортом в Excel.",
+                    LongDescription = "Собирает MEP Spaces, определяет наружные КЛИП-грани ограждений, " +
+                                      "считает A (высота), B (ширина), площадь, ориентацию (N/E/S/W по True North) " +
+                                      "и выгружает всё в Excel."
+                };
+                PushButton btn = calcPanel.AddItem(btnData) as PushButton;
 
                 return Result.Succeeded;
 

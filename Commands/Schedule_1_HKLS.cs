@@ -73,7 +73,7 @@ namespace ATP_Common_Plugin.Commands
                 {
                     if (form.ShowDialog() == DialogResult.OK)
                     {
-                        isUseDict = form.UseDictMoide;
+                        isUseDict = form.UseDictMode;
                         DictPath = form.SelectedFilePath;
                     }
                     else
@@ -100,7 +100,7 @@ namespace ATP_Common_Plugin.Commands
                     new CategoryOperation(
                         name: "Группирование линейных элементов",
                         groupValue: "3",
-                        categoryKeys: new[] { "DuctCurves", "DuctFlexCurves", "PipeCurves", "PipeFlexCurves" }
+                        categoryKeys: new[] { "DuctCurves", "PipeCurves"}
                     ),
                     new CategoryOperation(
                         name: "Группирование соединительных элементов",
@@ -127,6 +127,7 @@ namespace ATP_Common_Plugin.Commands
                 {
                     logger.LogInfo("Начало заполнения параметра ИмяСистемы", docName);
                     tr.Start();
+
                     if (isUseDict)
                     {
                         var tableData = ReadDict(DictPath, docName);
@@ -163,12 +164,11 @@ namespace ATP_Common_Plugin.Commands
                             BuiltInCategory.OST_PlumbingFixtures,
                         };
 
-                        foreach (var category in categories)
+                        foreach (var category in equipCategories)
                         {
-                            if (selecttionBuiltInInstance.selectInstanceOfCategory(doc, category) != null)
-                            {
-                                linearObjects.AddRange(selecttionBuiltInInstance.selectInstanceOfCategory(doc, category));
-                            }
+                            var list = selecttionBuiltInInstance.selectInstanceOfCategory(doc, category);
+                            if (list != null && list.Count > 0)
+                                mechEquip.AddRange(list);
                         }
 
                         if (linearObjects.Count > 0)
@@ -188,6 +188,7 @@ namespace ATP_Common_Plugin.Commands
                         {
                             logger.LogWarning("Не найдено оборудования для обработки", docName);
                         }
+
                     }
                     else 
                         SetSystemName(doc, docName, systems);
@@ -197,6 +198,7 @@ namespace ATP_Common_Plugin.Commands
 
                 //TaskDialog.Show("Готово", "Имя системы и группирование заполнено.");
                 logger.LogInfo("Завершение заполнения параметра ИмяСистемы", docName);
+                TaskDialog.Show("Успех", "Параметры ИмяСистемы и ADSK_Группирование запонлнеы");
 
                 return Result.Succeeded;
             }
@@ -311,9 +313,10 @@ namespace ATP_Common_Plugin.Commands
                 Element systemType = doc.GetElement(system.GetTypeId());
                 string abbreviation = systemType.get_Parameter(BuiltInParameter.RBS_SYSTEM_ABBREVIATION_PARAM).AsValueString();
                 string typeComment = systemType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
-                string systemName = system.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM).AsValueString();
+                string systemNameRaw = system.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM).AsValueString();
+                string systemNameKey = (systemNameRaw ?? string.Empty).Trim();
                 string newName = $"{abbreviation} - {typeComment}";
-                SystemsDict[systemName] = newName;
+                SystemsDict[systemNameKey] = newName;
 
                 IList<Element> Contains = new List<Element> { };
 
@@ -349,13 +352,11 @@ namespace ATP_Common_Plugin.Commands
                         {
                             priorityElements[element.Id] = isPipingSystem;
                         }
-                        else
-                        {
-                            RevitUtils.SetParameterValue(element, "ИмяСистемы", newName);
-                        }
                     }
-
+                    else
+                    {
                         RevitUtils.SetParameterValue(element, "ИмяСистемы", newName);
+                    }
                 }
             }
 
@@ -363,29 +364,39 @@ namespace ATP_Common_Plugin.Commands
             {
                 bool isPiping = priorityElements[elementId];
                 Element element = doc.GetElement(elementId);
-                string names = element.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM).AsValueString();
-                string[] namesList = names.Split(',');
+                string names = element.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM).AsValueString() ?? string.Empty;
+                string[] namesList = names
+                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => s.Trim())
+                    .Where(s => s.Length > 0)
+                    .ToArray();
+
                 string search = "";
                 string newName = "Оборудование без системы";
 
                 if (!isPiping)
                 {
                     char[] targetChars = { 'П', 'В' };
-                    search = targetChars
-                        .Where(c => names.Contains(c.ToString()))
-                        .Select(c => namesList.FirstOrDefault(name => name.Contains(c.ToString())))
-                        .FirstOrDefault(name => name != null);
+                    search = namesList.FirstOrDefault(n => targetChars.Any(c => n.Contains(c.ToString())));
                 }
                 else
                 {
                     char[] targetChars = { 'Н', 'К', 'В', 'Т', 'Х' };
-                    search = targetChars
-                        .Where(c => names.Contains(c.ToString()))
-                        .Select(c => namesList.FirstOrDefault(name => name.Contains(c.ToString())))
-                        .FirstOrDefault(name => name != null);
+                    search = namesList.FirstOrDefault(n => targetChars.Any(c => n.Contains(c.ToString())));
                 }
 
-                newName = SystemsDict[search];
+                string key = (search ?? string.Empty).Trim();
+                if (key.Length > 0 && SystemsDict.TryGetValue(key, out string mapped))
+                {
+                    newName = mapped;
+                }
+                else
+                {
+                    var first = namesList.FirstOrDefault();
+                    string firstKey = (first ?? string.Empty).Trim();
+                    if (firstKey.Length > 0 && SystemsDict.TryGetValue(firstKey, out string mappedFirst))
+                        newName = mappedFirst;
+                }
 
                 RevitUtils.SetParameterValue(element, "ИмяСистемы", newName);
             }
@@ -408,19 +419,17 @@ namespace ATP_Common_Plugin.Commands
                     continue;
 
                 string name = nameParam.AsValueString();
-                if (string.IsNullOrEmpty(name))
+                if (string.IsNullOrWhiteSpace(name))
                     continue;
 
-                string newName = name;
-                try
+                string key = name.Trim();
+                string newName;
+                if (!dictionary.TryGetValue(key, out newName))
                 {
-                    newName = dictionary[name];
+                    logger.LogWarning($"Система элемента не добавлена в словарь: «{key}». Id элемента: {element.Id}", docName);
+                    newName = key;
                 }
-                catch
-                {
-                    logger.LogWarning($"Система элемента не добавлена в словарь. Id элемента: {element.Id}", docName);
-                }
-                
+
                 RevitUtils.SetParameterValue(element, "ИмяСистемы", newName);
             }
         }
@@ -451,7 +460,10 @@ namespace ATP_Common_Plugin.Commands
 
                     foreach (string namePart in priorityNames)
                     {
-                        if (dictionary.TryGetValue(namePart, out string dictValue))
+                        var key = (namePart ?? string.Empty).Trim();
+                        if (key.Length == 0) continue;
+
+                        if (dictionary.TryGetValue(key, out string dictValue))
                         {
                             systemName = dictValue;
                             break;
@@ -505,7 +517,7 @@ namespace ATP_Common_Plugin.Commands
         private OpenFileDialog openFileDialog;
 
         public string SelectedFilePath { get; private set; }
-        public bool UseDictMoide { get; private set; }
+        public bool UseDictMode { get; private set; }
 
         public ExcellDictSelectionForm()
         {
@@ -573,7 +585,7 @@ namespace ATP_Common_Plugin.Commands
 
             openFileDialog = new OpenFileDialog
             {
-                Filter = "Excel Files|* .xlsx;* .xls",
+                Filter = "Excel Files|*.xlsx;*.xls",
                 Title = "Выберете словарь систем"
             };
 
@@ -639,14 +651,14 @@ namespace ATP_Common_Plugin.Commands
         {
             if (this.DialogResult == DialogResult.OK)
             {
-                UseDictMoide = useFileCheckBox.Checked;
+                UseDictMode = useFileCheckBox.Checked;
                 bool UseRevitData = useRevitDataCheckBox.Checked;
-                if (UseDictMoide && string.IsNullOrWhiteSpace(filePathTextBox.Text))
+                if (UseDictMode && string.IsNullOrWhiteSpace(filePathTextBox.Text))
                 {
                     MessageBox.Show("Выберите словарь с именами систем или отключите режим его использование", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     e.Cancel = true;
                 }
-                if (!UseDictMoide && !UseRevitData)
+                if (!UseDictMode && !UseRevitData)
                 {
                     MessageBox.Show("Выберите режим работы", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     e.Cancel = true;

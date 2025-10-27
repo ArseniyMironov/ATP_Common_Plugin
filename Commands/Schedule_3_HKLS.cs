@@ -6,7 +6,10 @@ using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Net;
+using System.Text.RegularExpressions;
 
 namespace ATP_Common_Plugin.Commands
 {
@@ -53,41 +56,61 @@ namespace ATP_Common_Plugin.Commands
                                 continue;
                             }
 
-                            // Получение существующих параметров 
+                            // Получение существующих параметров
                             string ductSize = duct.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE).AsValueString();
-                            string thickness = "0.9";
                             Parameter paramLength = duct.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH);
+                            string thickness = "0.9";
                             GetDuctThickness(duct, ref ductSize, ref thickness);
+
                             Element ductType = doc.GetElement(duct.GetTypeId());
                             string ductUnits = ductType.get_Parameter(dictionaryGUID.ADSKUnit).AsValueString();
-                            ForgeTypeId countParmUnit = paramLength.GetUnitTypeId();
-                            ForgeTypeId countUnit = UnitTypeId.Meters;
+
+                            // qtyNumber: длина (м) или площадь (м²) по единицам
+                            double qtyNumber;
+                            if (ductUnits == "м²")
+                            {
+                                // площадь поверхности
+                                var areaParam = duct.get_Parameter(BuiltInParameter.RBS_CURVE_SURFACE_AREA);
+                                double areaInt = areaParam.AsDouble(); // внутр. ед. (кв. фут)
+                                qtyNumber = UnitUtils.ConvertFromInternalUnits(areaInt, UnitTypeId.SquareMeters);
+                            }
+                            else
+                            {
+                                // длина
+                                double lenInt = paramLength.AsDouble(); // внутр. ед. (фут)
+                                qtyNumber = UnitUtils.ConvertFromInternalUnits(lenInt, UnitTypeId.Meters);
+                            }
 
                             // Генерация новых значений
-                            string newName = $"{ductType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ= {thickness}";
-                            double newCount = Int32.Parse(paramLength.AsValueString());
+                            string newName = $"{ductType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize} δ= {thickness}";
                             double.TryParse(thickness.Trim(), out double newThickness);
-
-                            if (ductUnits == "м²") // Корректировка колличества, если единицы измерения не метры
-                            {
-                                Parameter param = duct.get_Parameter(BuiltInParameter.RBS_CURVE_SURFACE_AREA);
-                                ForgeTypeId unitType = param.GetUnitTypeId();
-                                countUnit = UnitTypeId.SquareMeters;
-                                newCount = UnitUtils.ConvertFromInternalUnits(param.AsDouble(), unitType);
-                            }
-                            newCount = UnitUtils.Convert(newCount, countParmUnit, countUnit);
 
                             // Обработка параметров 
                             RevitUtils.SetParameterValue(duct, dictionaryGUID.ADSKName, newName);
                             RevitUtils.SetParameterValue(duct, dictionaryGUID.ADSKSign, ductSize);
-                            RevitUtils.SetParameterValue(duct, dictionaryGUID.ADSKCount, newCount * koefDucts);
+
+                            // ADSK_Количество — уважаем собственные единицы параметра
+                            var countParam = duct.get_Parameter(dictionaryGUID.ADSKCount);
+                            if (countParam != null && countParam.StorageType == StorageType.Double)
+                            {
+                                var u = countParam.GetUnitTypeId();
+                                double toSet;
+                                if (u == UnitTypeId.Meters)
+                                    toSet = UnitUtils.ConvertToInternalUnits(qtyNumber * koefDucts, UnitTypeId.Meters);
+                                else if (u == UnitTypeId.SquareMeters)
+                                    toSet = UnitUtils.ConvertToInternalUnits(qtyNumber * koefDucts, UnitTypeId.SquareMeters);
+                                else
+                                    toSet = qtyNumber * koefDucts; // безразмерный
+
+                                RevitUtils.SetParameterValue(duct, dictionaryGUID.ADSKCount, toSet);
+                            }
+
+                            // Толщина стенки (мм → футы внутр. ед.)
                             RevitUtils.SetParameterValue(duct, dictionaryGUID.ADSKThicknes, UnitUtils.ConvertToInternalUnits(newThickness, UnitTypeId.Millimeters));
                         }
                         catch (Exception ex)
                         {
                             logger.LogError($"Ошибка при обработке воздуховодов {duct.Id} {ex}", docName);
-                            //testLog.Concat($"Ошибка при обработке воздуховодов {duct.Id} {ex}");
-                            //TaskDialog.Show("Ошибка", $"Ошибка при обработке воздуховодов {duct.Id} {ex.ToString()}");
                         }
                     }
                     tr.Commit();
@@ -111,36 +134,56 @@ namespace ATP_Common_Plugin.Commands
                             {
                                 continue;
                             }
-                            //if (ductFitting.)
-                            // Получение сеществующих параметров
+
+                            // Получение существующих параметров
                             string ductSize = ductFitting.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE).AsValueString();
                             string thickness = "0.9";
                             GetDuctThickness(ductFitting, ref ductSize, ref thickness);
 
                             Element ductFittingType = doc.GetElement(ductFitting.GetTypeId());
                             string ductFittingUnits = ductFitting.get_Parameter(dictionaryGUID.ADSKUnit).AsValueString();
-                            double.TryParse(thickness.Trim(), out double newThickness);
+
+                            double thicknessMmParsed = 0.0;
+                            double.TryParse(thickness.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out thicknessMmParsed);
+                            double thicknessMm2 = Math.Round(thicknessMmParsed, 2, MidpointRounding.AwayFromZero);
+                            string thicknessStr = thicknessMm2.ToString("0.##", CultureInfo.InvariantCulture);
 
                             // Генерация новых значений 
                             if (ductFittingUnits == "м²")
                             {
                                 Parameter param = ductFitting.get_Parameter(dictionaryGUID.ADSKSizeArea);
-                                ForgeTypeId unitType = param.GetTypeId();
-                                ForgeTypeId countUnit = UnitTypeId.SquareMeters;
+                                ForgeTypeId unitType = param.GetUnitTypeId();
                                 double ductFittingValue = UnitUtils.ConvertFromInternalUnits(param.AsDouble(), unitType);
                                 RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKCount, ductFittingValue);
                             }
 
-                            string newName = $"{ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ= {thickness}";
+                            // Имя с углом для отводов (если параметр угла есть)
+                            string baseTypeComment = ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
+                            string famName = ductFitting.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString() ?? "";
 
+                            string newName = $"{ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ= {thicknessStr}";
+                            if (famName.IndexOf("Отвод", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                // !!! при необходимости укажи верный GUID параметра угла
+                                Parameter pAngle = ductFitting.get_Parameter(dictionaryGUID.ADSKSizeAngle);
+                                if (pAngle != null && pAngle.StorageType == StorageType.Double)
+                                {
+                                    // Внутренние единицы угла — радианы. Конвертим в градусы.
+                                    double angDeg = UnitUtils.ConvertFromInternalUnits(pAngle.AsDouble(), UnitTypeId.Degrees);
+                                    int angInt = (int)Math.Round(angDeg, 0);
+                                    newName = $"{baseTypeComment} {angInt}° {ductSize}  δ= {thickness}";
+                                }
+                            }
+
+                            // Запись параметров
                             RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKName, newName);
                             RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKSign, ductSize);
-                            RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKThicknes, UnitUtils.ConvertToInternalUnits(newThickness, UnitTypeId.Millimeters));
+                            RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKThicknes,
+                                UnitUtils.ConvertToInternalUnits(thicknessMm2, UnitTypeId.Millimeters));
                         }
                         catch (Exception ex)
                         {
                             testLog.Concat($"Ошибка при обработке соединительных деталей воздуховодов {ductFitting.Id} {ex}");
-                            //TaskDialog.Show("Ошибка", $"Ошибка при обработке соединительных деталей воздуховодов {ductFitting.Id} {ex.ToString()}");
                         }
                     }
                     tr.Commit();
@@ -194,7 +237,20 @@ namespace ATP_Common_Plugin.Commands
                             // Обработка параметров
                             RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKName, newName);
                             RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKCount, count * koef);
-                            RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKThicknes, thickness);
+
+                            var countParamIns = insulation.get_Parameter(dictionaryGUID.ADSKCount);
+                            if (countParamIns != null && countParamIns.StorageType == StorageType.Double)
+                            {
+                                var u = countParamIns.GetUnitTypeId();
+                                double toSet;
+                                if (u == UnitTypeId.Meters)
+                                    toSet = UnitUtils.ConvertToInternalUnits(count * koef, UnitTypeId.Meters);
+                                else if (u == UnitTypeId.SquareMeters)
+                                    toSet = UnitUtils.ConvertToInternalUnits(count * koef, UnitTypeId.SquareMeters);
+                                else
+                                    toSet = count * koef;
+                                RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKCount, toSet);
+                            }
 
                         }
                         catch (Exception ex)
@@ -244,7 +300,16 @@ namespace ATP_Common_Plugin.Commands
                             // Обработка параметров
                             RevitUtils.SetParameterValue(flexDuct, dictionaryGUID.ADSKName, newName);
                             RevitUtils.SetParameterValue(flexDuct, dictionaryGUID.ADSKSign, sign);
-                            RevitUtils.SetParameterValue(flexDuct, dictionaryGUID.ADSKCount, count);
+
+                            var countParamFlex = flexDuct.get_Parameter(dictionaryGUID.ADSKCount);
+                            if (countParamFlex != null && countParamFlex.StorageType == StorageType.Double)
+                            {
+                                var u = countParamFlex.GetUnitTypeId();
+                                double toSet = (u == UnitTypeId.Meters)
+                                    ? UnitUtils.ConvertToInternalUnits(count, UnitTypeId.Meters)
+                                    : count;
+                                RevitUtils.SetParameterValue(flexDuct, dictionaryGUID.ADSKCount, toSet);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -273,68 +338,94 @@ namespace ATP_Common_Plugin.Commands
                             {
                                 continue;
                             }
+
                             // Получение существующих параметров 
-                            ForgeTypeId pipeUnits = UnitTypeId.Meters;
-                            ForgeTypeId thicknessUnits = UnitTypeId.Millimeters;
                             string pipeMark = RevitUtils.GetSharedParameterValue(pipe, dictionaryGUID.ADSKMark);
                             string pipeName = doc.GetElement(pipe.GetTypeId()).get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
+
                             Parameter outSideDimParam = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER);
                             Parameter inSideDimParam = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_INNER_DIAM_PARAM);
-                            string diameter = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsValueString();
-                            double outSideDiameter = outSideDimParam.AsDouble();
-                            string stringOusideDiam = outSideDimParam.AsValueString();
-                            double inSideDiameter = inSideDimParam.AsDouble();
 
-                            // Генерация новых значений
-                            string newSign = "Проверить параметр ADSK_Марка";
-                            double countThickness = (outSideDiameter - inSideDiameter) / 2.0;
-                            string thickness = Math.Round(UnitUtils.ConvertFromInternalUnits(countThickness, thicknessUnits), 2).ToString();
-                            double newCount = pipe.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble();
-                            string marker = "⌀";
+                            double odInt = outSideDimParam.AsDouble(); // внутр. ед. (фут)
+                            double idInt = inSideDimParam.AsDouble();  // внутр. ед. (фут)
+                            double lenInt = pipe.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble();
 
-                            if (pipeMark == "ГОСТ Р 52134-2003"
-                                || pipeMark == "ГОСТ 52134-2003"
-                                || pipeMark == "ГОСТ 8732-78"
-                                || pipeMark == "ГОСТ 10704-91"
-                                || pipeMark == "ГОСТ Р 70628.2-2023"
-                                || pipeMark == "ГОСТ Р 54475-2011"
-                                || pipeMark == "ГОСТ 18599-2001"
-                                || pipeMark == "ГОСТ 32414-2013"
-                                || pipeMark == "ГОСТ 32415-2013"
-                                || pipeMark == "RAUTITAN flex"
-                                || pipeMark == "RAUTITAN pink") 
-                                newSign = $"{marker}{stringOusideDiam}x{thickness}";
+                            // === Толщина стенки: единый расчёт и округление до 2 знаков ===
+                            double wallInt = (odInt - idInt) / 2.0; // внутр. ед.
+                            double wallMmExact = UnitUtils.ConvertFromInternalUnits(wallInt, UnitTypeId.Millimeters);
+                            double wallMm2 = Math.Round(wallMmExact, 2, MidpointRounding.AwayFromZero);
+                            string wallStr = wallMm2.ToString("0.##", CultureInfo.InvariantCulture);
 
-                            else if (pipeMark == "ГОСТ 3262-75"
-                                || pipeMark == "ЕN 12735-2")
-                                newSign = $"{marker}{stringOusideDiam}x{thickness}";
+                            // Доп. величины
+                            double odMm = UnitUtils.ConvertFromInternalUnits(odInt, UnitTypeId.Millimeters);
+                            double dnMm = UnitUtils.ConvertFromInternalUnits(
+                                pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble(),
+                                UnitTypeId.Millimeters);
+                            double lenMeters = UnitUtils.ConvertFromInternalUnits(lenInt, UnitTypeId.Meters) * koef;
 
-                            else if (pipeMark == "ГОСТ Р 52318-2005" 
-                                || pipeMark == "ГОСТ Р 52318-2005")
-                                newSign = $"{marker}{diameter},0x{thickness}";
+                            string odStr = odMm.ToString("0.##", CultureInfo.InvariantCulture);
+                            string dnStr = dnMm.ToString("0.##", CultureInfo.InvariantCulture);
+                            const string marker = "⌀";
 
+                            bool isODxE =
+                                    pipeMark == "ГОСТ 8732-78"         // бесшовные стальные → OD×e
+                                    || pipeMark == "ГОСТ 10704-91"        // электросварные → OD×e
+                                    || pipeMark == "ЕN 12735-2"           // медные ACR → OD×e
+                                    || pipeMark == "ГОСТ Р 52134-2003"    // термопласты → OD×e (часто с SDR/PN)
+                                    || pipeMark == "ГОСТ 18599-2001"      // ПЭ → OD×e (часто с SDR)
+                                    || pipeMark == "ГОСТ 32414-2013"      // ПП → OD×e
+                                    || pipeMark == "ГОСТ 32415-2013"      // (если используешь — аналогично ПП) → OD×e
+                                    || pipeMark == "RAUTITAN flex"        // бренд (PP-R/PE-Xa) — практично OD×e
+                                    || pipeMark == "RAUTITAN pink";
+
+                                bool isDN =
+                                    pipeMark == "ГОСТ 3262-75"         // ВГП → DN
+                                    || pipeMark == "ГОСТ Р 52318-2005";   // EN 10255 аналог → DN
+
+
+                            string newSign;
+                            if (isODxE)
+                            {
+                                newSign = $"{marker}{odStr}x{wallStr}";
+                            }
+                            else if (isDN)
+                            {
+                                newSign = $"{marker}{dnStr}";
+                            }
                             else
-                                newSign = $"{marker}{diameter},0x{thickness}";
+                            {
+                                newSign = $"{marker}{odStr}x{wallStr}";
+                            }
 
                             string newName = $"{pipeName} {newSign}";
 
-                            // Обработка параметров 
+                            // Запись параметров
                             RevitUtils.SetParameterValue(pipe, dictionaryGUID.ADSKName, newName);
                             RevitUtils.SetParameterValue(pipe, dictionaryGUID.ADSKSign, newSign);
-                            RevitUtils.SetParameterValue(pipe, dictionaryGUID.ADSKThicknes, thickness);
-                            RevitUtils.SetParameterValue(pipe, dictionaryGUID.ADSKCount, newCount * koef);
 
-                        }
+                            // Числовой параметр толщины — пишем ровно ту же (округлённую) величину (мм → внутр. ед.)
+                            double wallIntRounded = UnitUtils.ConvertToInternalUnits(wallMm2, UnitTypeId.Millimeters);
+                            RevitUtils.SetParameterValue(pipe, dictionaryGUID.ADSKThicknes, wallIntRounded);
 
-                        catch (Exception ex)
-                        {
-                            testLog.Concat($"Ошибка при обработке трубопроводов {pipe.Id} {ex}");
-                            //TaskDialog.Show("Ошибка", $"Ошибка при обработке трубопроводов {ex.ToString()}");
-                        }
+                            // Количество
+                            Parameter countParam = pipe.get_Parameter(dictionaryGUID.ADSKCount);
+                            if (countParam != null && countParam.StorageType == StorageType.Double)
+                            {
+                                ForgeTypeId u = countParam.GetUnitTypeId();
+                                double toSet = (u == UnitTypeId.Meters)
+                                    ? UnitUtils.ConvertToInternalUnits(lenMeters, UnitTypeId.Meters)
+                                    : lenMeters; // безразмерный
+                                RevitUtils.SetParameterValue(pipe, dictionaryGUID.ADSKCount, toSet);
+                            }
                     }
+                    catch (Exception ex)
+                    {
+                        logger.LogError($"Ошибка при обработке трубопроводов {pipe.Id} {ex}", docName);
+                    }
+                }
 
-                    tr.Commit();
-                    logger.LogInfo("Завершение обработки трубопроводов", docName);
+                tr.Commit();
+                logger.LogInfo("Завершение обработки трубопроводов", docName);
                 }
             }
 
@@ -401,68 +492,134 @@ namespace ATP_Common_Plugin.Commands
                     {
                         try
                         {
-                            if (insulation != null)
+                            if (insulation == null) continue;
+                            if (RevitUtils.CheckElement(insulation)) continue;
+
+                            // Получение существующих параметров 
+                            InsulationLiningBase insLinBase = insulation as InsulationLiningBase;
+                            Element host = doc.GetElement(insLinBase.HostElementId);
+                            Element insType = doc.GetElement(insulation.GetTypeId());
+
+                            bool isCategotyPypeAcc = host.Category.Id.IntegerValue == ((int)BuiltInCategory.OST_PipeAccessory);
+                            string insUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit);
+                            string insMark = insulation.get_Parameter(dictionaryGUID.ADSKMark).AsValueString();
+                            string insTypeComment = insType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
+                            string hostFabric = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKFabricName);
+
+                            double hostOutsideDiamMm = UnitUtils.ConvertFromInternalUnits(
+                                host.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER).AsDouble(), UnitTypeId.Millimeters);
+
+                            double thicknessMm = UnitUtils.ConvertFromInternalUnits(
+                                insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS_FOR_PIPE).AsDouble(),
+                                UnitTypeId.Millimeters);
+
+                            // Базовое имя
+                            string newName = $"{insTypeComment} толщиной {thicknessMm}";
+
+                            // Особые линейки (K-Flex ST / Energocell HT / PE Compact)
+                            if (insMark.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
+                                || insMark.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0
+                                || insTypeComment.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
+                                || insTypeComment.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
-                                if (RevitUtils.CheckElement(insulation))
-                                {
-                                    continue;
-                                }
-                                
-                                // Получение существующих параметров 
-                                InsulationLiningBase insLinBase = insulation as InsulationLiningBase;
-                                Element host = doc.GetElement(insLinBase.HostElementId);
-                                Element insType = doc.GetElement(insulation.GetTypeId());
-                                bool isCategotyPypeAcc = host.Category.Id.IntegerValue == ((int)BuiltInCategory.OST_PipeAccessory);
-                                string insUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit);
-                                string insMark = insulation.get_Parameter(dictionaryGUID.ADSKMark).AsValueString();
-                                string insTypeComment = insType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
-                                string hostFabric = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKFabricName);
-                                string hostOutsideDiam = host.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER).AsValueString();
-                                double thickness = UnitUtils.ConvertFromInternalUnits(insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS_FOR_PIPE).AsDouble(), UnitTypeId.Millimeters);
-                                double count = 1;
+                                newName = $"{insTypeComment} {thicknessMm}{CalculateRightInsulationName(hostOutsideDiamMm, hostFabric)} для трубопровода {TransformFabric(hostFabric)}";
+                            }
 
-                                // Генерация новых значений
-                                string newName = $"{insTypeComment} толщиной {thickness}";
+                            if (insMark.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0
+                                || insTypeComment.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                newName = $"{insTypeComment} {thicknessMm}{CalculateRightInsulationName(hostOutsideDiamMm, hostFabric)} из вспененного полиэтилена с наружным слоем из полимерной армирующей пленки для трубопровода {TransformFabric(hostFabric)}";
+                            }
 
-                                if (isCategotyPypeAcc)
+                            // === Расчёт количества по единицам измерения ===
+                            double count = 0.0;
+
+                            if (isCategotyPypeAcc)
+                            {
+                                // аксессуары считаем штуками
+                                count = 1.0;
+                            }
+                            else if (insUnit == "м" || insUnit == "m")
+                            {
+                                // длина
+                                double lenInt = insulation.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble();
+                                count = UnitUtils.ConvertFromInternalUnits(lenInt, UnitTypeId.Meters);
+                            }
+                            else if (insUnit == "м²" || insUnit == "m²")
+                            {
+                                // площадь: для фиттингов — площадь хоста, иначе — своя поверхность
+                                if (host.Category.Name.IndexOf("Fittings", StringComparison.OrdinalIgnoreCase) >= 0
+                                    || host.Category.Name.Contains("Cоединительные"))
                                 {
-                                    count = 1.0;
-                                    RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKCount, count);
+                                    var pHostArea = host.get_Parameter(dictionaryGUID.ADSKSizeArea);
+                                    if (pHostArea != null && pHostArea.StorageType == StorageType.Double)
+                                        count = UnitUtils.ConvertFromInternalUnits(pHostArea.AsDouble(), UnitTypeId.SquareMeters);
                                 }
                                 else
                                 {
-                                    ForgeTypeId countUnits = UnitTypeId.Meters;
-                                    count = UnitUtils.ConvertFromInternalUnits(insulation.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble(), UnitTypeId.Meters);
-                                    if (insUnit == "м²")
-                                    {
-                                        countUnits = UnitTypeId.SquareMeters;
-                                        count = UnitUtils.ConvertFromInternalUnits(insulation.get_Parameter(BuiltInParameter.RBS_CURVE_SURFACE_AREA).AsDouble(), UnitTypeId.SquareMeters);
-                                        RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKCount, count);
-                                    }
-                                    else
-                                    {
-                                        RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKCount, count);
-                                    }
+                                    double areaInt = insulation.get_Parameter(BuiltInParameter.RBS_CURVE_SURFACE_AREA).AsDouble();
+                                    count = UnitUtils.ConvertFromInternalUnits(areaInt, UnitTypeId.SquareMeters);
                                 }
+                            }
+                            //else if (insUnit == "м³" || insUnit == "m³")
+                            //{
+                            //    // объём: используем общий параметр объёма изоляции, если он есть
+                            //    var pVol = insulation.get_Parameter(dictionaryGUID.ADSKSizeVolume); // ← подставь ваш GUID объёма
+                            //    if (pVol != null && pVol.StorageType == StorageType.Double)
+                            //    {
+                            //        count = UnitUtils.ConvertFromInternalUnits(pVol.AsDouble(), UnitTypeId.CubicMeters);
+                            //    }
+                            //    else
+                            //    {
+                            //        count = 0.0; // нет данных — безопасно не писать количество
+                            //    }
+                            //}
+                            else if (insUnit != null && insUnit.Contains("шт"))
+                            {
+                                count = 1.0;
+                            }
+                            else
+                            {
+                                // запасной вариант — длина
+                                double lenInt = insulation.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble();
+                                count = UnitUtils.ConvertFromInternalUnits(lenInt, UnitTypeId.Meters);
+                            }
 
-                                if (insMark.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
-                                    || insMark.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0 
-                                    || insTypeComment.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0 
-                                    || insTypeComment.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0)
-                                    newName = $"{insTypeComment} {thickness}{CalculateRightInsulationName(hostOutsideDiam, hostFabric)} для трубопровода {TransformFabric(hostFabric)}";
+                            // Применяем коэффициент
+                            double countWithK = count * koef;
 
-                                if (insMark.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0 || insTypeComment.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0)
-                                    newName = $"{insTypeComment} {thickness}{CalculateRightInsulationName(hostOutsideDiam, hostFabric)} из вспененного полиэтилена с наружным слоем из полимерной армирующей пленки для трубопровода {TransformFabric(hostFabric)}";
+                            // Запись имени
+                            RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKName, newName);
 
-                                // Обработка параметров 
-                                RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKName, newName);
-                                RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKThicknes, UnitUtils.ConvertToInternalUnits(thickness, UnitTypeId.Millimeters) * koef);
+                            // Запись ADSK_Количество с учётом единиц самого параметра
+                            var countParamIns = insulation.get_Parameter(dictionaryGUID.ADSKCount);
+                            if (countParamIns != null && countParamIns.StorageType == StorageType.Double)
+                            {
+                                var u = countParamIns.GetUnitTypeId();
+                                double toSet =
+                                    (u == UnitTypeId.Meters) ? UnitUtils.ConvertToInternalUnits(countWithK, UnitTypeId.Meters) :
+                                    (u == UnitTypeId.SquareMeters) ? UnitUtils.ConvertToInternalUnits(countWithK, UnitTypeId.SquareMeters) :
+                                    (u == UnitTypeId.CubicMeters) ? UnitUtils.ConvertToInternalUnits(countWithK, UnitTypeId.CubicMeters) :
+                                                                     countWithK;
+
+                                RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKCount, toSet);
+                            }
+
+                            // Толщина изоляции в ADSK_Толщина стенки (мм → футы)
+                            RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKThicknes, UnitUtils.ConvertToInternalUnits(thicknessMm, UnitTypeId.Millimeters));
+
+                            // Прокидываем ADSK_Комплект с хоста, если есть у обоих
+                            var hostSet = host.get_Parameter(dictionaryGUID.ADSKKomp);
+                            if (hostSet != null && hostSet.StorageType == StorageType.String)
+                            {
+                                string kit = hostSet.AsString();
+                                if (!string.IsNullOrEmpty(kit))
+                                    RevitUtils.SetParameterValue(insulation, dictionaryGUID.ADSKKomp, kit);
                             }
                         }
                         catch (Exception ex)
                         {
                             testLog.Concat($"Ошибка при обработке изоляции трубопроводов {ex}");
-                            //TaskDialog.Show("Ошибка", $"Ошибка при обработке изоляции трубопроводов {ex.ToString()}");
                         }
                     }
                     tr.Commit();
@@ -474,12 +631,14 @@ namespace ATP_Common_Plugin.Commands
             if (testLog.Length > 0)
             {
                 //TaskDialog.Show("Ошибки", $"{testLog}");
+                TaskDialog.Show("Успех", "Параметры для спецификции заполнены");
                 return Result.Succeeded;
             }
             else
             {
                 //TaskDialog.Show("Готово", "Параметры для спецификации заполнены!");
-                logger.LogInfo("Завершение заполнение параметров для специфицкации", docName);
+                logger.LogInfo("Параметры для спецификции заполнены", docName);
+                TaskDialog.Show("Успех", "Параметры для спецификции заполнены с ошибками (см. Error center)");
                 return Result.Succeeded; // Подумать, может можно не заканчивать, а пропустить?
             }
         }
@@ -540,9 +699,11 @@ namespace ATP_Common_Plugin.Commands
         /// <returns></returns>
         private bool IsDuctFitting(Element elem)
         {
-            string categoryName = elem.Category?.Name ?? "";
-            return categoryName.IndexOf("Fitting", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   categoryName.IndexOf("детали", StringComparison.OrdinalIgnoreCase) >= 0;
+            Category cat = elem?.Category;
+            if (cat == null) return false;
+
+            BuiltInCategory bic = (BuiltInCategory)cat.Id.IntegerValue;
+            return _ductPipeFittings.Contains(bic);
         }
 
         /// <summary>
@@ -555,27 +716,53 @@ namespace ATP_Common_Plugin.Commands
         /// <returns></returns>
         private int GetDuctSize(Element elem, bool isRectangular, bool isFitting, ref string ductSize)
         {
+            if (elem == null)
+            {
+                ductSize = string.Empty;
+                return 0;
+            }
+
             if (isFitting)
             {
-                string sizeString = elem.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE).AsValueString() ?? "";
-                int size = ParseSize(elem, sizeString, isRectangular, ref ductSize);
-                return size;
+                // RBS_CALCULATED_SIZE — строка; AsString предпочтительнее, но AsValueString тоже допустим.
+                string sizeString =
+                    elem.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE)?.AsString()
+                    ?? elem.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE)?.AsValueString()
+                    ?? string.Empty;
+
+                return ParseFittingSize(sizeString, isRectangular, ref ductSize);
+            }
+
+            // Duct / MEPCurve: читаем в футах и переводим в мм
+            if (isRectangular)
+            {
+                Parameter pW = elem.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM);
+                Parameter pH = elem.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM);
+
+                double wFt = pW?.AsDouble() ?? 0.0;
+                double hFt = pH?.AsDouble() ?? 0.0;
+
+                int w = ToMmInt(wFt);
+                int h = ToMmInt(hFt);
+
+                if (w <= 0 && h <= 0)
+                {
+                    ductSize = string.Empty;
+                    return 0;
+                }
+
+                int a = Math.Min(w, h);
+                int b = Math.Max(w, h);
+                ductSize = (a > 0 && b > 0) ? $"{a}x{b}" : (b > 0 ? $"{b}" : string.Empty);
+                return b;
             }
             else
             {
-                if (isRectangular)
-                {
-                    Int32.TryParse(elem.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM).AsValueString(), out int width);
-                    Int32.TryParse(elem.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM).AsValueString(), out int height);
-                    ductSize = $"{Math.Min(width, height)}x{Math.Max(width, height)}";
-                    return Math.Max(width, height);
-                }
-                else
-                {
-                    Int32.TryParse(elem.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM).AsValueString(), out int diameter);
-                    ductSize = $"⌀{diameter}";
-                    return diameter;
-                }
+                Parameter pD = elem.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM);
+                double dFt = pD?.AsDouble() ?? 0.0;
+                int d = ToMmInt(dFt);
+                ductSize = d > 0 ? $"⌀{d}" : string.Empty;
+                return d;
             }
         }
 
@@ -615,6 +802,66 @@ namespace ATP_Common_Plugin.Commands
                 ProcessSpecialCases(elem, sizeString, ref ductSize);
                 return diameters.Max();
             }
+        }
+
+        private int ParseFittingSize(string sizeString, bool isRectangular, ref string ductSize)
+        {
+            ductSize = string.Empty;
+            if (string.IsNullOrWhiteSpace(sizeString))
+                return 0;
+
+            // Нормализация: убираем пробелы, приводим x/×/х к 'x', выбрасываем единицы измерения
+            string s = sizeString
+                .Replace(" ", string.Empty)
+                .Replace('×', 'x')
+                .Replace('х', 'x')
+                .Replace("мм", string.Empty)
+                .Replace("mm", string.Empty);
+
+            // 1) Попробуем явно выцепить первую пару AxB
+            Match rectPair = Regex.Match(s, @"(\d+)\s*[xX]\s*(\d+)");
+            // 2) Вытащим все числа из строки (полезно при цепочках вида "500x300-400x300" или "⌀200-⌀160")
+            var allNums = Regex.Matches(s, @"\d+").Cast<Match>().Select(m => int.Parse(m.Value)).Where(n => n > 0).ToList();
+
+            if (allNums.Count == 0)
+                return 0;
+
+            if (isRectangular)
+            {
+                if (rectPair.Success)
+                {
+                    int a = int.Parse(rectPair.Groups[1].Value);
+                    int b = int.Parse(rectPair.Groups[2].Value);
+                    int min = Math.Min(a, b);
+                    int max = Math.Max(a, b);
+                    ductSize = $"{min}x{max}";
+                    return max;
+                }
+                // fallback: берём две наибольшие величины и формируем AxB
+                allNums.Sort(); allNums.Reverse();
+                int max1 = allNums[0];
+                int max2 = allNums.Count > 1 ? allNums[1] : max1;
+                int minSide = Math.Min(max1, max2);
+                int maxSide = Math.Max(max1, max2);
+                ductSize = $"{minSide}x{maxSide}";
+                return maxSide;
+            }
+            else
+            {
+                // Круглые: ищем явные диаметры; если нет метки, просто берём максимум
+                // Поддержим варианты "⌀200", "Ø200", "D200" (реже): если есть — всё равно allNums.Max() корректно сработает
+                int dia = allNums.Max();
+                ductSize = $"⌀{dia}";
+                return dia;
+            }
+        }
+
+        private const int RoundMm = 0;
+
+        private static int ToMmInt(double feet)
+        {
+            double mm = UnitUtils.ConvertFromInternalUnits(feet, UnitTypeId.Millimeters);
+            return (int)Math.Round(mm, RoundMm);
         }
 
         /// <summary>
@@ -705,48 +952,37 @@ namespace ATP_Common_Plugin.Commands
         /// <param name="outSide"></param>
         /// <param name="hostFabric"></param>
         /// <returns></returns>
-        private string CalculateRightInsulationName(string outSide, string hostFabric)
+        private string CalculateRightInsulationName(double outsideDiamMm, string hostFabric)
         {
+            double d = outsideDiamMm;
             string insulDiam = "Не удалось подобрать диаметр трубопровода под типоразмер изоляцию";
-            Double.TryParse(outSide, out double outsideDiam);
 
-            if (outsideDiam < 18)
-                insulDiam = "18";
-            else if (outsideDiam >= 18 && outsideDiam < 22)
-                insulDiam = "22";
-            else if (outsideDiam >= 22 && outsideDiam < 28)
-                insulDiam = "28";
-            else if (outsideDiam >= 28 && outsideDiam < 35)
-                insulDiam = "35";
-            else if (outsideDiam >= 35 && outsideDiam < 42)
-                insulDiam = "42";
-            else if (outsideDiam >= 42 && outsideDiam < 48)
-                insulDiam = "48";
-            else if (outsideDiam >= 48 && outsideDiam < 54)
-                insulDiam = "54";
-            else if (outsideDiam >= 54 && outsideDiam < 60)
-                insulDiam = "60";
-            else if (outsideDiam >= 60 && outsideDiam < 76)
-                insulDiam = "76";
-            else if (outsideDiam >= 76 && outsideDiam < 89)
-                insulDiam = "89";
-            else if (outsideDiam >= 89 && outsideDiam < 102)
-                insulDiam = "102";
-            else if (outsideDiam >= 102 && outsideDiam < 108)
-                insulDiam = "108";
-            else if (outsideDiam >= 108 && outsideDiam < 114)
-                insulDiam = "114";
-            else if (outsideDiam >= 114 && outsideDiam < 125)
-                insulDiam = "125";
-            else if (outsideDiam >= 125 && outsideDiam < 133)
-                insulDiam = "133";
-            else if (outsideDiam >= 133 && outsideDiam < 140)
-                insulDiam = "140";
-            else if (outsideDiam >= 140 && outsideDiam < 160)
-                insulDiam = "160";
+            if (d < 18) insulDiam = "18";
+            else if (d < 22) insulDiam = "22";
+            else if (d < 28) insulDiam = "28";
+            else if (d < 35) insulDiam = "35";
+            else if (d < 42) insulDiam = "42";
+            else if (d < 48) insulDiam = "48";
+            else if (d < 54) insulDiam = "54";
+            else if (d < 60) insulDiam = "60";
+            else if (d < 76) insulDiam = "76";
+            else if (d < 89) insulDiam = "89";
+            else if (d < 102) insulDiam = "102";
+            else if (d < 108) insulDiam = "108";
+            else if (d < 114) insulDiam = "114";
+            else if (d < 125) insulDiam = "125";
+            else if (d < 133) insulDiam = "133";
+            else if (d < 140) insulDiam = "140";
+            else if (d < 160) insulDiam = "160";
 
-            string newName = $"x{insulDiam}";
-            return newName;
+            return $"x{insulDiam}";
         }
+
+
+        private static readonly HashSet<BuiltInCategory> _ductPipeFittings = new HashSet<BuiltInCategory>
+        {
+            BuiltInCategory.OST_DuctFitting,
+            BuiltInCategory.OST_PipeFitting
+        };
     }
 }
