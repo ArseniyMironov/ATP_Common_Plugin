@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 
 namespace ATP_Common_Plugin.Commands
 {
@@ -630,6 +631,7 @@ namespace ATP_Common_Plugin.Commands
             if (testLog.Length > 0)
             {
                 //TaskDialog.Show("Ошибки", $"{testLog}");
+                TaskDialog.Show("Успех", "Параметры для спецификции заполнены");
                 return Result.Succeeded;
             }
             else
@@ -696,9 +698,11 @@ namespace ATP_Common_Plugin.Commands
         /// <returns></returns>
         private bool IsDuctFitting(Element elem)
         {
-            string categoryName = elem.Category?.Name ?? "";
-            return categoryName.IndexOf("Fitting", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   categoryName.IndexOf("детали", StringComparison.OrdinalIgnoreCase) >= 0;
+            Category cat = elem?.Category;
+            if (cat == null) return false;
+
+            BuiltInCategory bic = (BuiltInCategory)cat.Id.IntegerValue;
+            return _ductPipeFittings.Contains(bic);
         }
 
         /// <summary>
@@ -711,27 +715,53 @@ namespace ATP_Common_Plugin.Commands
         /// <returns></returns>
         private int GetDuctSize(Element elem, bool isRectangular, bool isFitting, ref string ductSize)
         {
+            if (elem == null)
+            {
+                ductSize = string.Empty;
+                return 0;
+            }
+
             if (isFitting)
             {
-                string sizeString = elem.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE).AsValueString() ?? "";
-                int size = ParseSize(elem, sizeString, isRectangular, ref ductSize);
-                return size;
+                // RBS_CALCULATED_SIZE — строка; AsString предпочтительнее, но AsValueString тоже допустим.
+                string sizeString =
+                    elem.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE)?.AsString()
+                    ?? elem.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE)?.AsValueString()
+                    ?? string.Empty;
+
+                return ParseFittingSize(sizeString, isRectangular, ref ductSize);
+            }
+
+            // Duct / MEPCurve: читаем в футах и переводим в мм
+            if (isRectangular)
+            {
+                Parameter pW = elem.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM);
+                Parameter pH = elem.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM);
+
+                double wFt = pW?.AsDouble() ?? 0.0;
+                double hFt = pH?.AsDouble() ?? 0.0;
+
+                int w = ToMmInt(wFt);
+                int h = ToMmInt(hFt);
+
+                if (w <= 0 && h <= 0)
+                {
+                    ductSize = string.Empty;
+                    return 0;
+                }
+
+                int a = Math.Min(w, h);
+                int b = Math.Max(w, h);
+                ductSize = (a > 0 && b > 0) ? $"{a}x{b}" : (b > 0 ? $"{b}" : string.Empty);
+                return b;
             }
             else
             {
-                if (isRectangular)
-                {
-                    Int32.TryParse(elem.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM).AsValueString(), out int width);
-                    Int32.TryParse(elem.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM).AsValueString(), out int height);
-                    ductSize = $"{Math.Min(width, height)}x{Math.Max(width, height)}";
-                    return Math.Max(width, height);
-                }
-                else
-                {
-                    Int32.TryParse(elem.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM).AsValueString(), out int diameter);
-                    ductSize = $"⌀{diameter}";
-                    return diameter;
-                }
+                Parameter pD = elem.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM);
+                double dFt = pD?.AsDouble() ?? 0.0;
+                int d = ToMmInt(dFt);
+                ductSize = d > 0 ? $"⌀{d}" : string.Empty;
+                return d;
             }
         }
 
@@ -771,6 +801,66 @@ namespace ATP_Common_Plugin.Commands
                 ProcessSpecialCases(elem, sizeString, ref ductSize);
                 return diameters.Max();
             }
+        }
+
+        private int ParseFittingSize(string sizeString, bool isRectangular, ref string ductSize)
+        {
+            ductSize = string.Empty;
+            if (string.IsNullOrWhiteSpace(sizeString))
+                return 0;
+
+            // Нормализация: убираем пробелы, приводим x/×/х к 'x', выбрасываем единицы измерения
+            string s = sizeString
+                .Replace(" ", string.Empty)
+                .Replace('×', 'x')
+                .Replace('х', 'x')
+                .Replace("мм", string.Empty)
+                .Replace("mm", string.Empty);
+
+            // 1) Попробуем явно выцепить первую пару AxB
+            Match rectPair = Regex.Match(s, @"(\d+)\s*[xX]\s*(\d+)");
+            // 2) Вытащим все числа из строки (полезно при цепочках вида "500x300-400x300" или "⌀200-⌀160")
+            var allNums = Regex.Matches(s, @"\d+").Cast<Match>().Select(m => int.Parse(m.Value)).Where(n => n > 0).ToList();
+
+            if (allNums.Count == 0)
+                return 0;
+
+            if (isRectangular)
+            {
+                if (rectPair.Success)
+                {
+                    int a = int.Parse(rectPair.Groups[1].Value);
+                    int b = int.Parse(rectPair.Groups[2].Value);
+                    int min = Math.Min(a, b);
+                    int max = Math.Max(a, b);
+                    ductSize = $"{min}x{max}";
+                    return max;
+                }
+                // fallback: берём две наибольшие величины и формируем AxB
+                allNums.Sort(); allNums.Reverse();
+                int max1 = allNums[0];
+                int max2 = allNums.Count > 1 ? allNums[1] : max1;
+                int minSide = Math.Min(max1, max2);
+                int maxSide = Math.Max(max1, max2);
+                ductSize = $"{minSide}x{maxSide}";
+                return maxSide;
+            }
+            else
+            {
+                // Круглые: ищем явные диаметры; если нет метки, просто берём максимум
+                // Поддержим варианты "⌀200", "Ø200", "D200" (реже): если есть — всё равно allNums.Max() корректно сработает
+                int dia = allNums.Max();
+                ductSize = $"⌀{dia}";
+                return dia;
+            }
+        }
+
+        private const int RoundMm = 0;
+
+        private static int ToMmInt(double feet)
+        {
+            double mm = UnitUtils.ConvertFromInternalUnits(feet, UnitTypeId.Millimeters);
+            return (int)Math.Round(mm, RoundMm);
         }
 
         /// <summary>
@@ -886,5 +976,12 @@ namespace ATP_Common_Plugin.Commands
 
             return $"x{insulDiam}";
         }
+
+
+        private static readonly HashSet<BuiltInCategory> _ductPipeFittings = new HashSet<BuiltInCategory>
+        {
+            BuiltInCategory.OST_DuctFitting,
+            BuiltInCategory.OST_PipeFitting
+        };
     }
 }

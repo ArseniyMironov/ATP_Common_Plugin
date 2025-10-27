@@ -127,6 +127,7 @@ namespace ATP_Common_Plugin.Commands
                 {
                     logger.LogInfo("Начало заполнения параметра ИмяСистемы", docName);
                     tr.Start();
+
                     if (isUseDict)
                     {
                         var tableData = ReadDict(DictPath, docName);
@@ -197,6 +198,7 @@ namespace ATP_Common_Plugin.Commands
 
                 //TaskDialog.Show("Готово", "Имя системы и группирование заполнено.");
                 logger.LogInfo("Завершение заполнения параметра ИмяСистемы", docName);
+                TaskDialog.Show("Успех", "Параметры ИмяСистемы и ADSK_Группирование запонлнеы");
 
                 return Result.Succeeded;
             }
@@ -350,10 +352,10 @@ namespace ATP_Common_Plugin.Commands
                         {
                             priorityElements[element.Id] = isPipingSystem;
                         }
-                        else
-                        {
-                            RevitUtils.SetParameterValue(element, "ИмяСистемы", newName);
-                        }
+                    }
+                    else
+                    {
+                        RevitUtils.SetParameterValue(element, "ИмяСистемы", newName);
                     }
                 }
             }
