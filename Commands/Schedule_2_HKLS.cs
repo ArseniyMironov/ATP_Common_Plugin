@@ -67,6 +67,8 @@ namespace ATP_Common_Plugin.Commands
                 return Result.Failed;
             }
             logger.LogInfo("Параметры переданы во вложенные семейства", docName);
+
+            TaskDialog.Show("Успех", "Параметры переданы во вложенные семейства");
             return Result.Succeeded;
         }
 

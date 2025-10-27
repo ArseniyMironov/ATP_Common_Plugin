@@ -637,7 +637,8 @@ namespace ATP_Common_Plugin.Commands
             else
             {
                 //TaskDialog.Show("Готово", "Параметры для спецификации заполнены!");
-                logger.LogInfo("Завершение заполнение параметров для специфицкации", docName);
+                logger.LogInfo("Параметры для спецификции заполнены", docName);
+                TaskDialog.Show("Успех", "Параметры для спецификции заполнены с ошибками (см. Error center)");
                 return Result.Succeeded; // Подумать, может можно не заканчивать, а пропустить?
             }
         }
