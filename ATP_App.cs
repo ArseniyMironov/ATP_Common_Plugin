@@ -46,7 +46,7 @@ namespace ATP_Common_Plugin
                 RibbonPanel ribbonPamelHKLSMark = app.CreateRibbonPanel(HKLStabName, "Оформление");
                 RibbonPanel ribbonPanelHKLSSchedule = app.CreateRibbonPanel(HKLStabName, "Спецификация");
                 RibbonPanel ribbonPanelHKLSTask = app.CreateRibbonPanel(HKLStabName, "Задания");
-                RibbonPanel calcPanel = app.CreateRibbonPanel(HKLStabName, "Расчеты");
+                RibbonPanel calcPanel = app.CreateRibbonPanel(HKLStabName, "Расчеты (In Progress)");
                 RibbonPanel ribbonPamelHKLSUtils = app.CreateRibbonPanel(HKLStabName, "Утилиты");
 
 
@@ -152,7 +152,7 @@ namespace ATP_Common_Plugin
                 {
                     LargeImage = numbering,
                     ToolTip = "Заполнение труб и воздуховодов.",
-                    LongDescription = $"Заполнение значений параметров ADSK_Наименование, ADSK_Колличество, ADSK_Обозначение и ADSK_Толщина стенки. Обрабатывает категории Duct, Flex Duct, Duct Fitting, Duct Insulation, Pipe, Flex Pipe и Pipe Insulation. Made by ARMI, Icon by {numberingIconAuthor}"
+                    LongDescription = $"Заполнение значений параметров ADSK_Наименование, ADSK_Колличество, ADSK_Обозначение и ADSK_Толщина стенки. Обрабатывает категории Duct, Flex Duct, Duct Fitting, Duct Insulation, Pipe, Flex Pipe и Pipe Insulation. Запас колличества для трубопроводов и изоляции - 1.2, запас колличества для воздуховодов - 1.1 Made by ARMI, Icon by {numberingIconAuthor}"
                 };
                 PushButton Hvac_Schedule_3_Btn = ribbonPanelHKLSSchedule.AddItem(HVAC_Schedule_3_BtnData) as PushButton;
                 
@@ -169,19 +169,19 @@ namespace ATP_Common_Plugin
                 // Calculation
                 // Экспорт данных для таблицы теплопотерь /  теплопритоков
 
-                var btnData = new PushButtonData(
-                    name: "ExportSpacesEnvelope",
-                    text: "Spaces Envelope\nExport",
-                    assemblyName: assemblyName,
-                    className: commandNamespace + "Calculation.SpacesEnvelopeExport.ExportSpacesEnvelopeCommand"
-                )
-                {
-                    ToolTip = "Экспликация Spaces и наружных ограждений (A/B/площадь/ориентация) с экспортом в Excel.",
-                    LongDescription = "Собирает MEP Spaces, определяет наружные КЛИП-грани ограждений, " +
-                                      "считает A (высота), B (ширина), площадь, ориентацию (N/E/S/W по True North) " +
-                                      "и выгружает всё в Excel."
-                };
-                PushButton btn = calcPanel.AddItem(btnData) as PushButton;
+                //var btnData = new PushButtonData(
+                //    name: "ExportSpacesEnvelope",
+                //    text: "Spaces Envelope\nExport",
+                //    assemblyName: assemblyName,
+                //    className: commandNamespace + "Calculation.SpacesEnvelopeExport.ExportSpacesEnvelopeCommand"
+                //)
+                //{
+                //    ToolTip = "Экспликация Spaces и наружных ограждений (A/B/площадь/ориентация) с экспортом в Excel.",
+                //    LongDescription = "Собирает MEP Spaces, определяет наружные КЛИП-грани ограждений, " +
+                //                      "считает A (высота), B (ширина), площадь, ориентацию (N/E/S/W по True North) " +
+                //                      "и выгружает всё в Excel."
+                //};
+                //PushButton btn = calcPanel.AddItem(btnData) as PushButton;
 
                 return Result.Succeeded;
 

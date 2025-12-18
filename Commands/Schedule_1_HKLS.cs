@@ -28,6 +28,7 @@ namespace ATP_Common_Plugin.Commands
 
             bool isUseDict;
             string DictPath;
+            bool isUseModel;
 
             if (doc == null)
             {
@@ -75,6 +76,7 @@ namespace ATP_Common_Plugin.Commands
                     {
                         isUseDict = form.UseDictMode;
                         DictPath = form.SelectedFilePath;
+                        isUseModel = form.UseRevitData;
                     }
                     else
                     {
@@ -148,7 +150,7 @@ namespace ATP_Common_Plugin.Commands
                             BuiltInCategory.OST_FlexPipeCurves
 
                         };
-                        
+
                         foreach (var category in categories)
                         {
                             if (selecttionBuiltInInstance.selectInstanceOfCategory(doc, category) != null)
@@ -190,8 +192,10 @@ namespace ATP_Common_Plugin.Commands
                         }
 
                     }
-                    else 
+                    else if (isUseModel)
+                    {
                         SetSystemName(doc, docName, systems);
+                    }
 
                     tr.Commit();
                 }
@@ -240,13 +244,13 @@ namespace ATP_Common_Plugin.Commands
                             tr.Commit();
                         } 
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        logger.LogError($"Ошибка при выполнении операции '{operation.Name}': {ex.Message}", docName);
                         if (tr.HasStarted() && !tr.HasEnded())
                         {
                             tr.RollBack();
                         }
-                        throw; // Перебрасываем исключение выше
                     }
                 }
             }
@@ -303,102 +307,173 @@ namespace ATP_Common_Plugin.Commands
 
         private void SetSystemName(Document doc, string docName, IList<Element> systems)
         {
-            Dictionary<string, string> SystemsDict = new Dictionary<string, string> { };
-            Dictionary<ElementId, bool> priorityElements = new Dictionary<ElementId, bool> { };
+            // Ключи — без учёта регистра, чтобы мэппинг стабильно находился
+            var systemsNameMap = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+            var systemKindMap = new Dictionary<string, bool>(StringComparer.InvariantCultureIgnoreCase);
+            var deferred = new HashSet<ElementId>(); // элементы с несколькими системами или пустыми именами
 
-            var logger = ATP_App.GetService<ILoggerService>();
+            // Локальные функции
+            Func<string, string> normalize = s => (s ?? string.Empty).Trim();
+            Func<Element, bool> IsPipingSystem = e =>
+                e.Category != null && e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_PipingSystem;
+            Func<Element, bool> IsDuctSystem = e =>
+                e.Category != null && e.Category.Id.IntegerValue == (int)BuiltInCategory.OST_DuctSystem;
 
+            // Чем меньше ранг, тем выше приоритет
+            // Piping: Н (Напорные системы), К (Канализаця), В (ХВС), Т (ГВС), Х (ХС)
+            // Duct:   П (Пприток), В (Вытяжка)
+            char[] pipingPriority = { 'Н', 'К', 'В', 'Т', 'Х' };
+            char[] ductPriority = { 'П', 'В' };
+
+            Func<string, bool, int> getRank = (name, isPiping) =>
+            {
+                if (string.IsNullOrEmpty(name)) return int.MaxValue;
+                var arr = isPiping ? pipingPriority : ductPriority;
+                // Ранг по первой найденной букве-приориту
+                for (int i = 0; i < arr.Length; i++)
+                    if (name.IndexOf(arr[i].ToString(), StringComparison.InvariantCultureIgnoreCase) >= 0)
+                        return i;
+                return arr.Length + 1; // «хуже» известных приоритетов
+            };
+
+            // 1) Построим мэппинг systemNameKey → (новое имя + тип системы)
             foreach (Element system in systems)
             {
-                Element systemType = doc.GetElement(system.GetTypeId());
-                string abbreviation = systemType.get_Parameter(BuiltInParameter.RBS_SYSTEM_ABBREVIATION_PARAM).AsValueString();
-                string typeComment = systemType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
-                string systemNameRaw = system.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM).AsValueString();
-                string systemNameKey = (systemNameRaw ?? string.Empty).Trim();
-                string newName = $"{abbreviation} - {typeComment}";
-                SystemsDict[systemNameKey] = newName;
+                if (system == null) continue;
 
-                IList<Element> Contains = new List<Element> { };
+                var systemType = doc.GetElement(system.GetTypeId());
+                if (systemType == null) continue;
 
-                bool isPipingSystem = system.Category.Name == "Piping Systems";
-                bool isDuctSystem = system.Category.Name == "Duct Systems";
+                // Текстовые параметры типа
+                var abbreviation = systemType.get_Parameter(BuiltInParameter.RBS_SYSTEM_ABBREVIATION_PARAM)?.AsString() ?? string.Empty;
+                var typeComment = systemType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsString() ?? string.Empty;
 
-                if (isPipingSystem)
+                // Имя системы (у самой системы)
+                var systemNameRaw = system.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM)?.AsString()
+                                    ?? system.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM)?.AsValueString();
+                var systemNameKey = normalize(systemNameRaw);
+
+                var newName = $"{abbreviation} - {typeComment}";
+                if (newName == "-" || string.IsNullOrWhiteSpace(newName)) newName = abbreviation.Length > 0 ? abbreviation : typeComment;
+
+                // Сохраняем мэппинг имени системы → то, что будем писать в "ИмяСистемы"
+                if (systemNameKey.Length > 0)
                 {
-                    var sys = system as PipingSystem;
-                    ElementSet pipeSystemElements = sys.PipingNetwork;
-                    foreach (Element pipeSystemElement in pipeSystemElements)
-                    {
-                        Contains.Add(pipeSystemElement);
-                    }
+                    systemsNameMap[systemNameKey] = newName;
+
+                    // Запомним вид системы (piping/duct) для корректного ранжирования дальше
+                    if (IsPipingSystem(system)) systemKindMap[systemNameKey] = true;
+                    else if (IsDuctSystem(system)) systemKindMap[systemNameKey] = false;
+                }
+
+                // 2) Соберём элементы сети (без дублей)
+                var members = new HashSet<ElementId>();
+                if (IsPipingSystem(system))
+                {
+                    var ps = system as PipingSystem;
+                    if (ps?.PipingNetwork != null)
+                        foreach (Element m in ps.PipingNetwork)
+                            if (m != null) members.Add(m.Id);
                 }
                 else
                 {
-                    var sys = system as MechanicalSystem;
-                    ElementSet ductSystemElements = sys.DuctNetwork;
-                    foreach (Element ductSystemElement in ductSystemElements)
-                    {
-                        Contains.Add(ductSystemElement);
-                    }
+                    var ms = system as MechanicalSystem;
+                    if (ms?.DuctNetwork != null)
+                        foreach (Element m in ms.DuctNetwork)
+                            if (m != null) members.Add(m.Id);
                 }
 
-                foreach (Element element in Contains)
+                // 3) Обработаем найденные элементы сети (только разрешённые категории)
+                foreach (var id in members)
                 {
-                    if (element.Category.Name == "Mechanical Equipment" || element.Category.Name == "Plumbing Fixture" || element.Category.Name == "Pipe Accessories" || element.Category.Name == "Duct Accessories")
-                    {
-                        string names = element.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM).AsValueString();
+                    var element = doc.GetElement(id);
+                    if (element == null) continue;
 
-                        if (names.Contains(","))
-                        {
-                            priorityElements[element.Id] = isPipingSystem;
-                        }
+                    var names = element.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM)?.AsString()
+                                ?? element.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM)?.AsValueString()
+                                ?? string.Empty;
+
+                    var hasComma = names.IndexOf(',') >= 0;
+                    var isEmpty = string.IsNullOrWhiteSpace(names);
+
+                    if (hasComma || isEmpty)
+                    {
+                        deferred.Add(id);
                     }
                     else
                     {
-                        RevitUtils.SetParameterValue(element, "ИмяСистемы", newName);
+                        var key = normalize(names);
+                        string mapped;
+                        if (key.Length > 0 && systemsNameMap.TryGetValue(key, out mapped))
+                        {
+                            RevitUtils.SetParameterValue(element, "ИмяСистемы", mapped);
+                        }
+                        else
+                        {
+                            // Если ключ не найден
+                        }
                     }
                 }
             }
 
-            foreach (ElementId elementId in priorityElements.Keys)
+            // 4) Финальная фаза: мультисистемные / пустые
+            foreach (var elementId in deferred)
             {
-                bool isPiping = priorityElements[elementId];
-                Element element = doc.GetElement(elementId);
-                string names = element.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM).AsValueString() ?? string.Empty;
-                string[] namesList = names
+                var element = doc.GetElement(elementId);
+                if (element == null) continue;
+
+                var names = element.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM)?.AsString()
+                            ?? element.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM)?.AsValueString()
+                            ?? string.Empty;
+
+                var namesList = names
                     .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim())
+                    .Select(s => normalize(s))
                     .Where(s => s.Length > 0)
+                    .Distinct(StringComparer.InvariantCultureIgnoreCase)
                     .ToArray();
 
-                string search = "";
-                string newName = "Оборудование без системы";
+                string chosenMapped = null;
+                int bestRank = int.MaxValue;
 
-                if (!isPiping)
+                // Попробуем выбрать «лучшую» систему по таблице приоритетов
+                foreach (var n in namesList)
                 {
-                    char[] targetChars = { 'П', 'В' };
-                    search = namesList.FirstOrDefault(n => targetChars.Any(c => n.Contains(c.ToString())));
-                }
-                else
-                {
-                    char[] targetChars = { 'Н', 'К', 'В', 'Т', 'Х' };
-                    search = namesList.FirstOrDefault(n => targetChars.Any(c => n.Contains(c.ToString())));
-                }
+                    string mapped;
+                    if (!systemsNameMap.TryGetValue(n, out mapped)) continue;
 
-                string key = (search ?? string.Empty).Trim();
-                if (key.Length > 0 && SystemsDict.TryGetValue(key, out string mapped))
-                {
-                    newName = mapped;
-                }
-                else
-                {
-                    var first = namesList.FirstOrDefault();
-                    string firstKey = (first ?? string.Empty).Trim();
-                    if (firstKey.Length > 0 && SystemsDict.TryGetValue(firstKey, out string mappedFirst))
-                        newName = mappedFirst;
+                    bool isPiping;
+                    // Если вид системы неизвестен — попробуем угадать по наличию в обоих наборах: по умолчанию хуже любых известных
+                    var hasKind = systemKindMap.TryGetValue(n, out isPiping);
+                    int rank = hasKind ? getRank(n, isPiping) : int.MaxValue - 1;
+
+                    if (rank < bestRank)
+                    {
+                        bestRank = rank;
+                        chosenMapped = mapped;
+                    }
                 }
 
-                RevitUtils.SetParameterValue(element, "ИмяСистемы", newName);
+                if (string.IsNullOrEmpty(chosenMapped))
+                {
+                    // Фолбэк: если ничего не сматчилось, берем первое присутствующее в мэппинге
+                    foreach (var n in namesList)
+                    {
+                        string mapped;
+                        if (systemsNameMap.TryGetValue(n, out mapped))
+                        {
+                            chosenMapped = mapped;
+                            break;
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(chosenMapped))
+                {
+                    chosenMapped = "Оборудование без системы";
+                }
+
+                RevitUtils.SetParameterValue(element, "ИмяСистемы", chosenMapped);
             }
         }
 
@@ -518,6 +593,7 @@ namespace ATP_Common_Plugin.Commands
 
         public string SelectedFilePath { get; private set; }
         public bool UseDictMode { get; private set; }
+        public bool UseRevitData { get; private set; }
 
         public ExcellDictSelectionForm()
         {
@@ -652,7 +728,7 @@ namespace ATP_Common_Plugin.Commands
             if (this.DialogResult == DialogResult.OK)
             {
                 UseDictMode = useFileCheckBox.Checked;
-                bool UseRevitData = useRevitDataCheckBox.Checked;
+                UseRevitData = useRevitDataCheckBox.Checked;
                 if (UseDictMode && string.IsNullOrWhiteSpace(filePathTextBox.Text))
                 {
                     MessageBox.Show("Выберите словарь с именами систем или отключите режим его использование", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);

@@ -52,17 +52,17 @@ namespace ATP_Common_Plugin
 
                 if (param == null)
                 {
-                    logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}");
+                    logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}", element.Document.Title);
                     return;
                 }
                 if (param.IsReadOnly)
                 {
-                    logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения");
+                    logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения", element.Document.Title);
                     return;
                 }
                 if (isElemInGroup)
                 {
-                    logger.LogWarning($"Элемент {element.Id} в группе");
+                    logger.LogWarning($"Элемент {element.Id} в группе", element.Document.Title);
                     return;
                 }
 
@@ -88,17 +88,17 @@ namespace ATP_Common_Plugin
 
             if (param == null)
             {
-                logger.LogWarning($"Параметр '{paramName}' отсутствует у элемента {element.Id}");
+                logger.LogWarning($"Параметр '{paramName}' отсутствует у элемента {element.Id}", element.Document.Title);
                 return;
             }
             if (param.IsReadOnly)
             {
-                logger.LogWarning($"Параметр '{paramName}' у элемента {element.Id} только для чтения");
+                logger.LogWarning($"Параметр '{paramName}' у элемента {element.Id} только для чтения", element.Document.Title);
                 return;
             }
             if (isElemInGroup)
             {
-                logger.LogWarning($"Элемент {element.Id} в группе");
+                logger.LogWarning($"Элемент {element.Id} в группе", element.Document.Title);
                 return;
             }
 
@@ -118,12 +118,12 @@ namespace ATP_Common_Plugin
 
             if (param == null)
             {
-                logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}");
+                logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}", element.Document.Title);
                 return;
             }
             if (param.IsReadOnly)
             {
-                logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения");
+                logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения", element.Document.Title);
                 return;
             }
             if (isElemInGroup)
@@ -133,7 +133,7 @@ namespace ATP_Common_Plugin
             }
             if (param.StorageType != StorageType.Double)
             {
-                logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} не Double");
+                logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} не Double", element.Document.Title);
                 return;
             }
 
