@@ -1,7 +1,6 @@
-﻿using Autodesk.Revit.DB;
+﻿using ATP_Common_Plugin.Utils.Geometry;
 using ATP_Common_Plugin.Utils.Spaces;
-using ATP_Common_Plugin.Models;
-using ATP_Common_Plugin.Utils.Geometry;
+using Autodesk.Revit.DB;
 
 namespace ATP_Common_Plugin.Services.Spaces
 {

@@ -17,7 +17,6 @@ namespace ATP_Common_Plugin.Commands
     [Transaction(TransactionMode.Manual)]
     class Schedule_3_HKLS : IExternalCommand
     {
-        
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             UIApplication uiApp = commandData.Application;
@@ -368,7 +367,7 @@ namespace ATP_Common_Plugin.Commands
                             const string marker = "⌀";
 
                             bool isODxE =
-                                    pipeMark == "ГОСТ 8732-78"         // бесшовные стальные → OD×e
+                                pipeMark == "ГОСТ 8732-78"         // бесшовные стальные → OD×e
                                     || pipeMark == "ГОСТ 10704-91"        // электросварные → OD×e
                                     || pipeMark == "ЕN 12735-2"           // медные ACR → OD×e
                                     || pipeMark == "ГОСТ Р 52134-2003"    // термопласты → OD×e (часто с SDR/PN)
@@ -378,9 +377,10 @@ namespace ATP_Common_Plugin.Commands
                                     || pipeMark == "RAUTITAN flex"        // бренд (PP-R/PE-Xa) — практично OD×e
                                     || pipeMark == "RAUTITAN pink";
 
-                                bool isDN =
-                                    pipeMark == "ГОСТ 3262-75"         // ВГП → DN
-                                    || pipeMark == "ГОСТ Р 52318-2005";   // EN 10255 аналог → DN
+                            bool isDN =
+                                pipeMark == "ГОСТ 3262-75"         // ВГП → DN
+                                    || pipeMark == "ГОСТ Р 52318-2005"   // EN 10255 аналог → DN
+                                    || pipeMark == "DIN EN 877";
 
 
                             string newSign;
@@ -502,15 +502,15 @@ namespace ATP_Common_Plugin.Commands
 
                             bool isCategotyPypeAcc = host.Category.Id.IntegerValue == ((int)BuiltInCategory.OST_PipeAccessory);
                             string insUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit);
-                            string insMark = insulation.get_Parameter(dictionaryGUID.ADSKMark).AsValueString();
-                            string insTypeComment = insType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
+                            string insMark = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKMark);
+                            string insTypeComment = insType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsString();
                             string hostFabric = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKFabricName);
 
                             double hostOutsideDiamMm = UnitUtils.ConvertFromInternalUnits(
                                 host.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER).AsDouble(), UnitTypeId.Millimeters);
 
                             double thicknessMm = UnitUtils.ConvertFromInternalUnits(
-                                insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS_FOR_PIPE).AsDouble(),
+                                insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS).AsDouble(),
                                 UnitTypeId.Millimeters);
 
                             // Базовое имя
@@ -631,14 +631,14 @@ namespace ATP_Common_Plugin.Commands
             if (testLog.Length > 0)
             {
                 //TaskDialog.Show("Ошибки", $"{testLog}");
-                TaskDialog.Show("Успех", "Параметры для спецификции заполнены");
+                TaskDialog.Show("Успех", "Параметры для спецификации заполнены");
                 return Result.Succeeded;
             }
             else
             {
                 //TaskDialog.Show("Готово", "Параметры для спецификации заполнены!");
-                logger.LogInfo("Параметры для спецификции заполнены", docName);
-                TaskDialog.Show("Успех", "Параметры для спецификции заполнены с ошибками (см. Error center)");
+                logger.LogInfo("Параметры для спецификации заполнены", docName);
+                TaskDialog.Show("Успех", "Параметры для спецификации заполнены с ошибками (см. Error center)");
                 return Result.Succeeded; // Подумать, может можно не заканчивать, а пропустить?
             }
         }

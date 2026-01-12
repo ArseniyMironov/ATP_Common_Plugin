@@ -105,9 +105,16 @@ namespace ATP_Common_Plugin.Commands
                         string hostGroupString = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKGroup);
                         double hostGroup;
                         bool isGroupCorrect = double.TryParse(hostGroupString, NumberStyles.Float, CultureInfo.InvariantCulture, out hostGroup);
-                        if (!isGroupCorrect || hostGroup % 1 != 0 || hostGroup < 1 || hostGroup > 7)
+
+                        if (!isGroupCorrect)
                         {
-                            logger.LogWarning($"{host.Id} - ADSK_Группирование должно быть целым 1..7", docName);
+                            logger.LogWarning($"{host.Id} - ADSK_Группирование недоступен для записи {hostGroup}", docName);
+                            continue;
+                        }
+
+                        if (hostGroup % 1.0 != 0 || hostGroup < 1.0 || hostGroup > 7.0)
+                        {
+                            logger.LogWarning($"{host.Id} - ADSK_Группирование заполнено некоректно: {hostGroup}", docName);
                             continue;
                         }
 
@@ -197,7 +204,9 @@ namespace ATP_Common_Plugin.Commands
                             // 3) Записываем (ровно 4 знака, инвариантная точка)
                             string subVal = subNumber.ToString("0.0000", CultureInfo.InvariantCulture);
                             RevitUtils.SetParameterValue(subElem, dictionaryGUID.ADSKGroup, subVal);
-
+                            RevitUtils.SetParameterValue(subElem, "ИмяСистемы", hostSystemName);
+                            RevitUtils.SetParameterValue(subElem, dictionaryGUID.ADSKKomp, hostKomp);
+                            RevitUtils.SetParameterValue(subElem, dictionaryGUID.ADSKLevel, hostLvl);
                         }
 
                         string hostVal = setNumber.ToString("0.0000", CultureInfo.InvariantCulture);
