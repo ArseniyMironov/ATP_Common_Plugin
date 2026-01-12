@@ -631,14 +631,14 @@ namespace ATP_Common_Plugin.Commands
             if (testLog.Length > 0)
             {
                 //TaskDialog.Show("Ошибки", $"{testLog}");
-                TaskDialog.Show("Успех", "Параметры для спецификции заполнены");
+                TaskDialog.Show("Успех", "Параметры для спецификации заполнены");
                 return Result.Succeeded;
             }
             else
             {
                 //TaskDialog.Show("Готово", "Параметры для спецификации заполнены!");
-                logger.LogInfo("Параметры для спецификции заполнены", docName);
-                TaskDialog.Show("Успех", "Параметры для спецификции заполнены с ошибками (см. Error center)");
+                logger.LogInfo("Параметры для спецификации заполнены", docName);
+                TaskDialog.Show("Успех", "Параметры для спецификации заполнены с ошибками (см. Error center)");
                 return Result.Succeeded; // Подумать, может можно не заканчивать, а пропустить?
             }
         }
