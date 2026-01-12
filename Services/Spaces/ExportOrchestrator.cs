@@ -3,8 +3,9 @@ using ATP_Common_Plugin.Models.Spaces;
 using ATP_Common_Plugin.Utils.Excel;
 using ATP_Common_Plugin.Utils.Geometry;
 using Autodesk.Revit.DB;
+using System;
 using System.Collections.Generic;
-using System.Windows.Media;
+using Outline = Autodesk.Revit.DB.Outline;
 using Transform = Autodesk.Revit.DB.Transform;
 
 namespace ATP_Common_Plugin.Services.Spaces
@@ -21,6 +22,8 @@ namespace ATP_Common_Plugin.Services.Spaces
         private readonly ExcelExportService _excel;
         private readonly ILoggerService _logger;
         private readonly OpeningsOnHostService _openings;
+        private readonly InteriorFilterService _interior;
+        private readonly LayerTraceService _layers;
 
         public ExportOrchestrator(
             SpaceCollectorService collector,
@@ -32,7 +35,9 @@ namespace ATP_Common_Plugin.Services.Spaces
             SpacesSpatialIndex3D index,
             ExcelExportService excel,
             ILoggerService logger,
-            OpeningsOnHostService openings)
+            OpeningsOnHostService openings,
+            InteriorFilterService interior,
+            LayerTraceService layers)
         {
             _collector = collector;
             _boundary = boundary;
@@ -44,6 +49,8 @@ namespace ATP_Common_Plugin.Services.Spaces
             _excel = excel;
             _logger = logger;
             _openings = openings;
+            _interior = interior;
+            _layers = layers;
         }
 
         public IList<SpaceInfo> Run(Document doc, ExportSpacesEnvelopeOptions options)
@@ -171,18 +178,28 @@ namespace ATP_Common_Plugin.Services.Spaces
                                     typeName = host.Name; // фоллбек, если тип недоступен
                             }
 
-                            info.Boundaries.Add(new BoundaryInfo
+                            // Фильтр внутренних стен (только для вертикалей и только для стен)
+                            bool isInterior = false;
+                            if (!isHoriz && host is Wall wallHost1)
                             {
-                                HostElementId = host != null ? host.Id : ElementId.InvalidElementId,
-                                Category = (host != null && host.Category != null) ? host.Category.Name : string.Empty,
-                                Family = host != null ? host.Name : string.Empty,
-                                Type = host != null ? host.GetType().Name : string.Empty,
-                                RevitTypeName = typeName,
-                                A_Height_M = System.Math.Round(a, Models.Settings.DigitsLen),
-                                B_Width_M = System.Math.Round(b, Models.Settings.DigitsLen),
-                                Area_M2 = System.Math.Round(area, Models.Settings.DigitsArea),
-                                Orientation = ori
-                            });
+                                // linkToHost/hostDoc уже получены выше для этого subface
+                                // nout — наружу от помещения в координатах mainDoc
+                                try
+                                {
+                                    isInterior = _interior.IsInteriorWall(
+                                        doc, sp, wallHost1, linkToHost, nout, _index, 1.5 /*м*/); ;
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger?.LogError($"Interior check failed for Wall {wallHost1.Id}: {ex.Message}");
+                                    isInterior = false; // fail-open, лучше включить чем пропустить фасад
+                                }
+                            }
+                            if (isInterior)
+                            {
+                                // внутренняя перегородка — пропускаем
+                                continue;
+                            }
 
                             if (host is Wall wallHost)
                             {
@@ -235,10 +252,95 @@ namespace ATP_Common_Plugin.Services.Spaces
                                 // если собрали что-то — добавим
                                 if (openings.Count > 0)
                                 {
-                                    foreach (var openinig in openings) 
+                                    foreach (var openinig in openings)
                                         info.Boundaries.Add(openinig);
                                 }
                             }
+
+                            bool wroteAnyLayer = false;
+                            if (!isHoriz && host is Wall startWall)
+                            {
+                                try
+                                {
+                                    // 1) Собираем цепочку параллельных стен «за отделкой»
+                                    var wallsChain = new List<Wall>();
+                                    wallsChain.Add(startWall);
+
+                                    double maxOffsetFt = UnitUtilsEx.MetersToFeet(1.2); // до ~1.2 м наружу
+                                    var nxy = new XYZ(nout.X, nout.Y, 0.0);
+                                    double ln = nxy.GetLength(); if (ln > 1e-9) nxy = nxy / ln; else nxy = XYZ.BasisX;
+
+                                    var behind = FindCoplanarWallsBehind(hostDoc, startWall, nxy, maxOffsetFt);
+                                    if (behind != null && behind.Count > 0)
+                                    {
+                                        // Отсортируем по расстоянию вдоль nxy (ближе → дальше)
+                                        XYZ hostMid = GetWallMidPoint(startWall);
+                                        var behindList = behind as List<Wall> ?? new List<Wall>(behind);
+                                        behindList.Sort((w1, w2) =>
+                                        {
+                                            double d1 = (GetWallMidPoint(w1) - hostMid).DotProduct(nxy);
+                                            double d2 = (GetWallMidPoint(w2) - hostMid).DotProduct(nxy);
+                                            return d1.CompareTo(d2);
+                                        });
+                                        wallsChain.AddRange(behindList);
+                                    }
+
+                                    // 2) Для каждой стены в цепочке берём ВНЕШНЮЮ плоскую грань по nout
+                                    foreach (var w in wallsChain)
+                                    {
+                                        var outer = TryGetOuterPlanarFace(w, nxy); // nxy в координатах hostDoc
+                                        if (outer == null) continue;
+
+                                        double la, lb, larea; bool lHoriz;
+                                        _measure.MeasureFace(outer, null, out la, out lb, out larea, out lHoriz);
+                                        if (la <= 0 || lb <= 0 || larea <= 0) continue;
+
+                                        var lori = _orient.GetOrientation(doc, nout, false);
+
+                                        string ltypeName = string.Empty;
+                                        var etL = hostDoc.GetElement(w.GetTypeId()) as ElementType;
+                                        if (etL != null) ltypeName = etL.Name;
+
+                                        info.Boundaries.Add(new BoundaryInfo
+                                        {
+                                            HostElementId = w.Id,
+                                            Category = (w.Category != null) ? w.Category.Name : string.Empty,
+                                            Family = w.Name,
+                                            Type = w.GetType().Name,
+                                            RevitTypeName = ltypeName,
+                                            A_Height_M = System.Math.Round(la, Models.Settings.DigitsLen),
+                                            B_Width_M = System.Math.Round(lb, Models.Settings.DigitsLen),
+                                            Area_M2 = System.Math.Round(larea, Models.Settings.DigitsArea),
+                                            Orientation = lori
+                                        });
+
+                                        wroteAnyLayer = true;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger?.LogError($"Wall-chain layering failed: {ex.Message}");
+                                    wroteAnyLayer = false;
+                                }
+                            }
+
+                            // Если слоёв не нашли — пишем базовую клип- грань, как раньше (fallback)
+                            if (!wroteAnyLayer)
+                            {
+                                info.Boundaries.Add(new BoundaryInfo
+                                {
+                                    HostElementId = host != null ? host.Id : ElementId.InvalidElementId,
+                                    Category = (host != null && host.Category != null) ? host.Category.Name : string.Empty,
+                                    Family = host != null ? host.Name : string.Empty,
+                                    Type = host != null ? host.GetType().Name : string.Empty,
+                                    RevitTypeName = typeName,
+                                    A_Height_M = System.Math.Round(a, Models.Settings.DigitsLen),
+                                    B_Width_M = System.Math.Round(b, Models.Settings.DigitsLen),
+                                    Area_M2 = System.Math.Round(area, Models.Settings.DigitsArea),
+                                    Orientation = ori
+                                });
+                            }
+
                         }
                     }
                 }
@@ -273,10 +375,12 @@ namespace ATP_Common_Plugin.Services.Spaces
             double maxOffsetFt)
         {
             var result = new List<Wall>();
-            if (hostDoc == null || hostWall == null || noutHost == null || noutHost.IsZeroLength()) return result;
+            if (hostDoc == null || hostWall == null || noutHost == null || noutHost.GetLength() < 1e-9) return result;
 
             // Направление наружу по XY
-            XYZ nxy = new XYZ(noutHost.X, noutHost.Y, 0.0);
+            double ln = noutHost.GetLength();
+            XYZ nxy = (ln > 1e-9) ? (new XYZ(noutHost.X, noutHost.Y, 0.0) / ln) : new XYZ(1, 0, 0);
+
             if (nxy.IsZeroLength()) return result;
             nxy = nxy.Normalize();
 
@@ -297,8 +401,9 @@ namespace ATP_Common_Plugin.Services.Spaces
             // 1) параллельность (вектора ориентации почти совпадают),
             // 2) положительная проекция смещения на nxy (стена действительно "за" отделкой),
             // 3) расстояние вдоль nxy не больше maxOffsetFt.
-            XYZ hostOri = ((Wall)hostWall).Orientation; // Перпендикуляр к стене, как у нас nxy
-            if (!hostOri.IsZeroLength()) hostOri = hostOri.Normalize();
+            XYZ hostOri = ((Wall)hostWall).Orientation;
+            double lho = hostOri.GetLength();
+            hostOri = (lho > 1e-9) ? hostOri / lho : new XYZ(0, 0, 0);
 
             // Возьмём реперную точку hostWall
             XYZ hostMid = GetWallMidPoint(hostWall);
@@ -315,16 +420,18 @@ namespace ATP_Common_Plugin.Services.Spaces
 
                 // Параллельность
                 XYZ wOri = w.Orientation;
-                if (wOri.IsZeroLength()) continue;
-                wOri = wOri.Normalize();
+                double lwo = wOri.GetLength();
+                if (lwo < 1e-9) continue;
+                wOri = wOri / lwo;
                 double dotParallel = System.Math.Abs(hostOri.DotProduct(wOri));
                 if (dotParallel < 0.98) continue; // не параллельные стены
 
                 // Смещение вдоль nxy
                 XYZ wMid = GetWallMidPoint(w);
+                double eps = UnitUtilsEx.MetersToFeet(0.001); // ~1 мм допуск
                 double d = (wMid - hostMid).DotProduct(nxy);
-                if (d <= 0) continue;                 // должна быть "за" отделкой (по nxy)
-                if (d > maxOffsetFt) continue;        // слишком далеко
+                if (d < -eps) continue;                       // реально «внутрь» помещения
+                if (d > maxOffsetFt + eps) continue;         // слишком далеко
 
                 result.Add(w);
             }
@@ -356,6 +463,66 @@ namespace ATP_Common_Plugin.Services.Spaces
             return !(bb.Max.X < ol.MinimumPoint.X || bb.Min.X > ol.MaximumPoint.X
                   || bb.Max.Y < ol.MinimumPoint.Y || bb.Min.Y > ol.MaximumPoint.Y
                   || bb.Max.Z < ol.MinimumPoint.Z || bb.Min.Z > ol.MaximumPoint.Z);
+        }
+
+        private static PlanarFace TryGetOuterPlanarFace(Wall w, XYZ nxyHost)
+        {
+            if (w == null) return null;
+            double ln = nxyHost.GetLength();
+            if (ln < 1e-9) return null;
+            nxyHost = nxyHost / ln;
+
+            var opt = new Options
+            {
+                ComputeReferences = false,
+                IncludeNonVisibleObjects = true,
+                DetailLevel = ViewDetailLevel.Fine
+            };
+            var ge = w.get_Geometry(opt);
+            if (ge == null) return null;
+
+            PlanarFace bestPos = null;
+            double bestPosDot = 0.6; // мягче порог для «правильного» направления
+
+            PlanarFace bestAbs = null;
+            double bestAbsDot = 0.0;
+
+            foreach (var go in ge)
+            {
+                var solid = go as Solid;
+                if (solid == null || solid.Faces == null) continue;
+
+                foreach (Face f in solid.Faces)
+                {
+                    var pf = f as PlanarFace;
+                    if (pf == null) continue;
+
+                    XYZ fn = pf.FaceNormal;
+                    XYZ fnxy = new XYZ(fn.X, fn.Y, 0.0);
+                    double lf = fnxy.GetLength();
+                    if (lf < 1e-9) continue;
+                    fnxy = fnxy / lf;
+
+                    double dot = fnxy.DotProduct(nxyHost);
+                    double ad = System.Math.Abs(dot);
+
+                    // Кандидат в «правильном» направлении
+                    if (dot > bestPosDot)
+                    {
+                        bestPosDot = dot;
+                        bestPos = pf;
+                    }
+
+                    // Fallback: максимальная параллельность по модулю
+                    if (ad > bestAbsDot)
+                    {
+                        bestAbsDot = ad;
+                        bestAbs = pf;
+                    }
+                }
+            }
+
+            return bestPos ?? bestAbs;
         }
     }
 }

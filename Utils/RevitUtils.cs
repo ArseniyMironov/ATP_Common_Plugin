@@ -2,6 +2,7 @@
 using ATP_Common_Plugin.Utils;
 using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -68,7 +69,7 @@ namespace ATP_Common_Plugin
 
                 if (param.StorageType == StorageType.String)
                 {
-                    string oldValue = param.AsString();
+                    string oldValue = param.AsValueString();
                     if (!string.Equals(value, oldValue))
                         param.Set(value);
                 }
@@ -104,7 +105,7 @@ namespace ATP_Common_Plugin
 
             if (param.StorageType == StorageType.String)
             {
-                string oldValue = param.AsString();
+                string oldValue = param.AsValueString();
                 if (!string.Equals(value, oldValue))
                     param.Set(value);
             }
@@ -404,6 +405,70 @@ namespace ATP_Common_Plugin
             }
 
             app.SharedParametersFilename = originalFile; // Восстанавливаем оригинальный путь
+        }
+
+        private const string ExcludedWorksetPrefix = "000_";
+        private const string ExcludedWorksetExactName = "020_Временные элементы";
+        private const string DefaultEmptyGroupKey = "(EMPTY)";
+
+        /// <summary>
+        /// Collect all instance elements of the given category, excluding elements that are placed
+        /// on worksets whose names start with "000_" or equal "020_Временные элементы".
+        /// Returns a List-based IList for speed / memory and convenient downstream grouping.
+        /// </summary>
+        public static IList<ElementId> CollectElementIdsByCategoryExludingWorksets(Document doc, BuiltInCategory category)
+        {
+            if (doc == null) throw new ArgumentNullException(nameof(doc));
+
+            HashSet<WorksetId> excludeWorksetIds = doc.IsWorkshared
+                ? GetExcludedWorksetIds(doc)
+                : new HashSet<WorksetId>();
+
+            var result = new List<ElementId>(capacity: 1024);
+
+            // Single pass over category instances (O(N))
+            FilteredElementCollector collector = new FilteredElementCollector(doc)
+                .WhereElementIsNotElementType()
+                .OfCategory(category);
+
+            foreach (Element e in collector)
+            {
+                if (e == null) continue;
+
+                if (doc.IsWorkshared && excludeWorksetIds.Count > 0)
+                {
+                    WorksetId wsId = e.WorksetId;
+                    if (wsId != null && wsId != WorksetId.InvalidWorksetId && excludeWorksetIds.Contains(wsId))
+                        continue;
+                }
+
+                result.Add(e.Id);
+            }
+
+            return result;
+        }
+
+        private static HashSet<WorksetId> GetExcludedWorksetIds(Document doc)
+        {
+            var result = new HashSet<WorksetId>();
+
+            FilteredWorksetCollector worksets = new FilteredWorksetCollector(doc)
+                .OfKind(WorksetKind.UserWorkset);
+
+            foreach (Workset ws in worksets)
+            {
+                if (ws == null) continue;
+
+                string name = ws.Name ?? string.Empty;
+
+                if (name.StartsWith(ExcludedWorksetPrefix, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(name, ExcludedWorksetExactName, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Add(ws.Id);
+                }
+            }
+
+            return result;
         }
     }
 }

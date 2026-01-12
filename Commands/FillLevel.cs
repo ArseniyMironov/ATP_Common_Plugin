@@ -90,9 +90,17 @@ namespace ATP_Common_Plugin.Commands
                     Parameter param = elem.get_Parameter(dictionaryGUID.ADSKLevel);
                     if (param == null)
                     {
+                        if (elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_Site && elem.Category.Id.IntegerValue == (int)BuiltInCategory.OST_SharedBasePoint)
+                        {
+                            continue;
+                        }
+
+                        TaskDialog.Show("Ой", $"у элемента {elem.Id} нет этажа");
+                        break;
+
                         try
                         {
-                            //RevitUtils.AddSharedParameter(doc, "ADSK_Этаж", dictionaryGUID.ADSKLevel, elem);
+                            RevitUtils.AddSharedParameter(doc, "ADSK_Этаж", dictionaryGUID.ADSKLevel, elem);
                         }
                         catch
                         {

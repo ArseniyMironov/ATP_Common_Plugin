@@ -44,8 +44,9 @@ namespace ATP_Common_Plugin.Commands.Calculation.SpacesEnvelopeExport
                     new SpacesSpatialIndex3D(logger),
                     new ExcelExportService(logger),
                     logger,
-                    new OpeningsOnHostService(logger)
-                    );
+                    new OpeningsOnHostService(logger),
+                    new InteriorFilterService(logger),
+                    new LayerTraceService(logger));
 
                 IList<SpaceInfo> result = orchestrator.Run(doc, options);
                 int totalBoundaries = 0;
