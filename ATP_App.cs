@@ -169,19 +169,19 @@ namespace ATP_Common_Plugin
                 // Calculation
                 // Экспорт данных для таблицы теплопотерь /  теплопритоков
 
-                var btnData = new PushButtonData(
-                    name: "ExportSpacesEnvelope",
-                    text: "Spaces Envelope\nExport",
-                    assemblyName: assemblyName,
-                    className: commandNamespace + "Calculation.SpacesEnvelopeExport.ExportSpacesEnvelopeCommand"
-                )
-                {
-                    ToolTip = "Экспликация Spaces и наружных ограждений (A/B/площадь/ориентация) с экспортом в Excel.",
-                    LongDescription = "Собирает MEP Spaces, определяет наружные КЛИП-грани ограждений, " +
-                                      "считает A (высота), B (ширина), площадь, ориентацию (N/E/S/W по True North) " +
-                                      "и выгружает всё в Excel."
-                };
-                PushButton btn = calcPanel.AddItem(btnData) as PushButton;
+                //var btnData = new PushButtonData(
+                //    name: "ExportSpacesEnvelope",
+                //    text: "Spaces Envelope\nExport",
+                //    assemblyName: assemblyName,
+                //    className: commandNamespace + "Calculation.SpacesEnvelopeExport.ExportSpacesEnvelopeCommand"
+                //)
+                //{
+                //    ToolTip = "Экспликация Spaces и наружных ограждений (A/B/площадь/ориентация) с экспортом в Excel.",
+                //    LongDescription = "Собирает MEP Spaces, определяет наружные КЛИП-грани ограждений, " +
+                //                      "считает A (высота), B (ширина), площадь, ориентацию (N/E/S/W по True North) " +
+                //                      "и выгружает всё в Excel."
+                //};
+                //PushButton btn = calcPanel.AddItem(btnData) as PushButton;
 
                 return Result.Succeeded;
 
