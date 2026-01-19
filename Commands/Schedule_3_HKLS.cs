@@ -43,7 +43,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка воздуховодов"))
                 {
-                    logger.LogInfo("Начало обработки воздуховодов", docName);
+                    logger.LogInfo($"Начало обработки воздуховодов. Найдено {ducts.Count} элементов.", docName);
                     tr.Start();
 
                     foreach (Element duct in ducts)
@@ -56,13 +56,19 @@ namespace ATP_Common_Plugin.Commands
                             }
 
                             // Получение существующих параметров
-                            string ductSize = duct.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE).AsValueString();
+                            string ductSize = duct.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE)?.AsValueString() ?? "";
                             Parameter paramLength = duct.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH);
                             string thickness = "0.9";
                             GetDuctThickness(duct, ref ductSize, ref thickness);
 
                             Element ductType = doc.GetElement(duct.GetTypeId());
-                            string ductUnits = ductType.get_Parameter(dictionaryGUID.ADSKUnit).AsValueString();
+                            if (ductType == null)
+                            {
+                                logger.LogWarning($"Тип воздуховода для элемента {duct.Id} не найден", docName);
+                                continue;
+                            }
+
+                            string ductUnits = ductType.get_Parameter(dictionaryGUID.ADSKUnit)?.AsValueString() ?? "";
 
                             // qtyNumber: длина (м) или площадь (м²) по единицам
                             double qtyNumber;
@@ -70,18 +76,19 @@ namespace ATP_Common_Plugin.Commands
                             {
                                 // площадь поверхности
                                 var areaParam = duct.get_Parameter(BuiltInParameter.RBS_CURVE_SURFACE_AREA);
-                                double areaInt = areaParam.AsDouble(); // внутр. ед. (кв. фут)
+                                double areaInt = areaParam?.AsDouble() ?? 0; // внутр. ед. (кв. фут)
                                 qtyNumber = UnitUtils.ConvertFromInternalUnits(areaInt, UnitTypeId.SquareMeters);
                             }
                             else
                             {
                                 // длина
-                                double lenInt = paramLength.AsDouble(); // внутр. ед. (фут)
+                                double lenInt = paramLength?.AsDouble() ?? 0; // внутр. ед. (фут)
                                 qtyNumber = UnitUtils.ConvertFromInternalUnits(lenInt, UnitTypeId.Meters);
                             }
 
                             // Генерация новых значений
-                            string newName = $"{ductType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize} δ= {thickness}";
+                            string typeComments = ductType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsValueString() ?? "";
+                            string newName = $"{typeComments} {ductSize} δ= {thickness}";
                             double.TryParse(thickness.Trim(), out double newThickness);
 
                             // Обработка параметров 
@@ -122,7 +129,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка соединительных деталей воздуховодов"))
                 {
-                    logger.LogInfo("Начало обработки соединительных деталей воздуховодов", docName);
+                    logger.LogInfo($"Начало обработки соединительных деталей воздуховодов. Найдено {ductFittings.Count} элементов.", docName);
                     tr.Start();
 
                     foreach (Element ductFitting in ductFittings)
@@ -135,12 +142,18 @@ namespace ATP_Common_Plugin.Commands
                             }
 
                             // Получение существующих параметров
-                            string ductSize = ductFitting.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE).AsValueString();
+                            string ductSize = ductFitting.get_Parameter(BuiltInParameter.RBS_CALCULATED_SIZE)?.AsValueString() ?? "";
                             string thickness = "0.9";
                             GetDuctThickness(ductFitting, ref ductSize, ref thickness);
 
                             Element ductFittingType = doc.GetElement(ductFitting.GetTypeId());
-                            string ductFittingUnits = ductFitting.get_Parameter(dictionaryGUID.ADSKUnit).AsValueString();
+                            if (ductFittingType == null)
+                            {
+                                logger.LogWarning($"Тип фасонной детали для элемента {ductFitting.Id} не найден", docName);
+                                continue;
+                            }
+
+                            string ductFittingUnits = ductFitting.get_Parameter(dictionaryGUID.ADSKUnit)?.AsValueString() ?? "";
 
                             double thicknessMmParsed = 0.0;
                             double.TryParse(thickness.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out thicknessMmParsed);
@@ -151,16 +164,19 @@ namespace ATP_Common_Plugin.Commands
                             if (ductFittingUnits == "м²")
                             {
                                 Parameter param = ductFitting.get_Parameter(dictionaryGUID.ADSKSizeArea);
-                                ForgeTypeId unitType = param.GetUnitTypeId();
-                                double ductFittingValue = UnitUtils.ConvertFromInternalUnits(param.AsDouble(), unitType);
-                                RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKCount, ductFittingValue);
+                                if (param != null)
+                                {
+                                    ForgeTypeId unitType = param.GetUnitTypeId();
+                                    double ductFittingValue = UnitUtils.ConvertFromInternalUnits(param.AsDouble(), unitType);
+                                    RevitUtils.SetParameterValue(ductFitting, dictionaryGUID.ADSKCount, ductFittingValue);
+                                }
                             }
 
                             // Имя с углом для отводов (если параметр угла есть)
-                            string baseTypeComment = ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
+                            string baseTypeComment = ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsValueString() ?? "";
                             string famName = ductFitting.get_Parameter(BuiltInParameter.ELEM_FAMILY_PARAM)?.AsValueString() ?? "";
 
-                            string newName = $"{ductFittingType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} {ductSize}  δ= {thicknessStr}";
+                            string newName = $"{baseTypeComment} {ductSize}  δ= {thicknessStr}";
                             if (famName.IndexOf("Отвод", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
                                 // !!! при необходимости укажи верный GUID параметра угла
@@ -195,7 +211,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка изоляции воздуховодов"))
                 {
-                    logger.LogInfo("Начало обработки изоляции воздуховодов", docName);
+                    logger.LogInfo($"Начало обработки изоляции воздуховодов. Найдено {ductInsulation.Count} элементов.", docName);
                     tr.Start();
 
                     foreach (Element insulation in ductInsulation)
@@ -209,13 +225,33 @@ namespace ATP_Common_Plugin.Commands
 
                             // Получение сеществующих параметров
                             Element insulationType = doc.GetElement(insulation.GetTypeId());
-                            Element insulationHost = doc.GetElement((insulation as InsulationLiningBase).HostElementId);
+                            if (insulationType == null)
+                            {
+                                logger.LogWarning($"Тип изоляции для элемента {insulation.Id} не найден", docName);
+                                continue;
+                            }
+
+                            InsulationLiningBase insBase = insulation as InsulationLiningBase;
+                            if (insBase == null)
+                            {
+                                logger.LogWarning($"Элемент {insulation.Id} не является InsulationLiningBase", docName);
+                                continue;
+                            }
+
+                            Element insulationHost = doc.GetElement(insBase.HostElementId);
+                            if (insulationHost == null)
+                            {
+                                logger.LogWarning($"Изоляция {insulation.Id} потеряла основу (host)", docName);
+                                continue;
+                            }
+
                             bool isHostFitting = insulationHost.Category.Name.IndexOf("Fittings", StringComparison.OrdinalIgnoreCase) >= 0 || insulationHost.Category.Name.Contains("Cоединительные");
-                            string insulationUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit);
-                            double thickness = insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS_FOR_DUCT).AsDouble();
+                            string insulationUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit) ?? "";
+                            double thickness = insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS_FOR_DUCT)?.AsDouble() ?? 0;
 
                             // Генерация новых значений
-                            string newName = $"{insulationType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} толшиной {UnitUtils.ConvertFromInternalUnits(thickness, UnitTypeId.Millimeters)} мм";
+                            string typeComments = insulationType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsValueString() ?? "";
+                            string newName = $"{typeComments} толшиной {UnitUtils.ConvertFromInternalUnits(thickness, UnitTypeId.Millimeters)} мм";
                             double count = 0;
                             if (insulationUnit == "м")
                             {
@@ -268,7 +304,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка гибких воздуховодов"))
                 {
-                    logger.LogInfo("Начало обработки гибких воздуховодов", docName);
+                    logger.LogInfo($"Начало обработки гибких воздуховодов. Найдено {ductsFlex.Count} элементов.", docName);
                     tr.Start();
 
                     foreach (Element flexDuct in ductsFlex)
@@ -280,20 +316,27 @@ namespace ATP_Common_Plugin.Commands
                                 continue;
                             }
                             // Получение сеществующих параметров
-                            string flexSize = flexDuct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM).AsValueString();
+                            string flexSize = flexDuct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)?.AsValueString() ?? "";
                             Element flexType = doc.GetElement(flexDuct.GetTypeId());
+                            if (flexType == null)
+                            {
+                                logger.LogWarning($"Тип гибкого воздуховода для элемента {flexDuct.Id} не найден", docName);
+                                continue;
+                            }
 
                             // Генерация новых значений
-                            string newName = $"{flexType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString()} ⌀{flexSize}";
+                            string typeComments = flexType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsValueString() ?? "";
+                            string newName = $"{typeComments} ⌀{flexSize}";
                             string sign = $"⌀{flexSize}";
                             double count = 1;
-                            string Unit = flexDuct.get_Parameter(dictionaryGUID.ADSKUnit).AsValueString();
+                            string Unit = flexDuct.get_Parameter(dictionaryGUID.ADSKUnit)?.AsValueString() ?? "";
                             ForgeTypeId countUnitts = UnitTypeId.Meters;
                             if (Unit == "м")
                             {
                                 countUnitts = UnitTypeId.Meters;
                                 Parameter countParam = flexDuct.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH);
-                                count = UnitUtils.ConvertFromInternalUnits(countParam.AsDouble(), countParam.GetUnitTypeId()) * koef;
+                                if (countParam != null)
+                                    count = UnitUtils.ConvertFromInternalUnits(countParam.AsDouble(), countParam.GetUnitTypeId()) * koef;
                             }
 
                             // Обработка параметров
@@ -326,7 +369,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка трубопроводов"))
                 {
-                    logger.LogInfo("Начало обработки трубопроводов", docName);
+                    logger.LogInfo($"Начало обработки трубопроводов. Найдено {pipes.Count} элементов.", docName);
                     tr.Start();
 
                     foreach (Element pipe in pipes)
@@ -339,15 +382,22 @@ namespace ATP_Common_Plugin.Commands
                             }
 
                             // Получение существующих параметров 
-                            string pipeMark = RevitUtils.GetSharedParameterValue(pipe, dictionaryGUID.ADSKMark);
-                            string pipeName = doc.GetElement(pipe.GetTypeId()).get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
+                            string pipeMark = RevitUtils.GetSharedParameterValue(pipe, dictionaryGUID.ADSKMark) ?? "";
+                            Element pipeType = doc.GetElement(pipe.GetTypeId());
+                            if (pipeType == null)
+                            {
+                                logger.LogWarning($"Тип трубы для элемента {pipe.Id} не найден", docName);
+                                continue;
+                            }
+
+                            string pipeName = pipeType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsValueString() ?? "";
 
                             Parameter outSideDimParam = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER);
                             Parameter inSideDimParam = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_INNER_DIAM_PARAM);
 
-                            double odInt = outSideDimParam.AsDouble(); // внутр. ед. (фут)
-                            double idInt = inSideDimParam.AsDouble();  // внутр. ед. (фут)
-                            double lenInt = pipe.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble();
+                            double odInt = outSideDimParam?.AsDouble() ?? 0; // внутр. ед. (фут)
+                            double idInt = inSideDimParam?.AsDouble() ?? 0;  // внутр. ед. (фут)
+                            double lenInt = pipe.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH)?.AsDouble() ?? 0;
 
                             // === Толщина стенки: единый расчёт и округление до 2 знаков ===
                             double wallInt = (odInt - idInt) / 2.0; // внутр. ед.
@@ -434,7 +484,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using( Transaction tr = new Transaction(doc, "Обработка гибких трубопроводов"))
                 {
-                    logger.LogInfo("Начало обработки гибких трубопроводов", docName);
+                    logger.LogInfo($"Начало обработки гибких трубопроводов. Найдено {pipesFlex.Count} элементов.", docName);
                     tr.Start();
 
                     foreach (var flex in pipesFlex)
@@ -447,17 +497,23 @@ namespace ATP_Common_Plugin.Commands
                             }
                             // Получение существующих параметров 
                             Element flexType = doc.GetElement(flex.GetTypeId());
-                            string flesTypeComment = flexType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsValueString();
-                            string flexUnit = flexType.get_Parameter(dictionaryGUID.ADSKUnit).AsValueString();
+                            if (flexType == null)
+                            {
+                                logger.LogWarning($"Тип гибкого трубопровода для элемента {flex.Id} не найден", docName);
+                                continue;
+                            }
+
+                            string flesTypeComment = flexType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsValueString() ?? "";
+                            string flexUnit = flexType.get_Parameter(dictionaryGUID.ADSKUnit)?.AsValueString() ?? "";
                             string marker = "⌀";
-                            double diameter = UnitUtils.ConvertFromInternalUnits(flex.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).AsDouble(), UnitTypeId.Millimeters);
+                            double diameter = UnitUtils.ConvertFromInternalUnits(flex.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)?.AsDouble() ?? 0, UnitTypeId.Millimeters);
                             double count = 0;
 
                             // Генерация новых значений
                             string newName = $"{flesTypeComment} {marker}{diameter}";
                             if (flexUnit == "м" || flexUnit == "m")
                             {
-                                count = UnitUtils.ConvertFromInternalUnits(flex.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble(), UnitTypeId.Millimeters) / 1000 * koef;
+                                count = UnitUtils.ConvertFromInternalUnits(flex.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH)?.AsDouble() ?? 0, UnitTypeId.Millimeters) / 1000 * koef;
                             }
                             else if (flexUnit.Contains("шт"))
                             {
