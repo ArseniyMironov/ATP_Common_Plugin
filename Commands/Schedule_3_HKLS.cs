@@ -182,7 +182,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке соединительных деталей воздуховодов {ductFitting.Id} {ex}");
+                            testLog += $"Ошибка при обработке соединительных деталей воздуховодов {ductFitting.Id} {ex}\n";
                         }
                     }
                     tr.Commit();
@@ -254,7 +254,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке изоляции воздуховодов {ex}");
+                            testLog += $"Ошибка при обработке изоляции воздуховодов {ex}\n";
                             //TaskDialog.Show("Ошибка", $"Ошибка при обработке изоляции воздуховодов /n {ex.ToString()}");
                         }
                     }
@@ -312,7 +312,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке гибких воздуховодов {ex}");
+                            testLog += $"Ошибка при обработке гибких воздуховодов {ex}\n";
                             //TaskDialog.Show("Ошибка", $"Ошибка при обработке гибких воздуховодов {ex.ToString()}");
                         }
                     }
@@ -471,7 +471,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке гибких трубопроводов {flex.Id} {ex}");
+                            testLog += $"Ошибка при обработке гибких трубопроводов {flex.Id} {ex}\n";
                             //TaskDialog.Show("Ошибка", $"Ошибка при обработке трубопроводов {ex.ToString()}");
                         }
                     }
@@ -497,7 +497,19 @@ namespace ATP_Common_Plugin.Commands
 
                             // Получение существующих параметров 
                             InsulationLiningBase insLinBase = insulation as InsulationLiningBase;
+                            if (insLinBase == null)
+                            {
+                                logger.LogWarning($"Элемент {insulation.Id} не является изоляцией", docName);
+                                continue;
+                            }
+
                             Element host = doc.GetElement(insLinBase.HostElementId);
+                            if (host == null)
+                            {
+                                logger.LogWarning($"Изоляция {insulation.Id} потеряла основу (host)", docName);
+                                continue;
+                            }
+
                             Element insType = doc.GetElement(insulation.GetTypeId());
 
                             bool isCategotyPypeAcc = host.Category.Id.IntegerValue == ((int)BuiltInCategory.OST_PipeAccessory);
@@ -619,7 +631,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке изоляции трубопроводов {ex}");
+                            testLog += $"Ошибка при обработке изоляции трубопроводов {ex}\n";
                         }
                     }
                     tr.Commit();
@@ -631,15 +643,16 @@ namespace ATP_Common_Plugin.Commands
             if (testLog.Length > 0)
             {
                 //TaskDialog.Show("Ошибки", $"{testLog}");
-                TaskDialog.Show("Успех", "Параметры для спецификации заполнены");
+                logger.LogWarning($"Ошибки при заполнении параметров: {testLog}", docName);
+                TaskDialog.Show("Готово", "Параметры заполнены, но возникли ошибки (см. лог)");
                 return Result.Succeeded;
             }
             else
             {
                 //TaskDialog.Show("Готово", "Параметры для спецификации заполнены!");
-                logger.LogInfo("Параметры для спецификации заполнены", docName);
-                TaskDialog.Show("Успех", "Параметры для спецификации заполнены с ошибками (см. Error center)");
-                return Result.Succeeded; // Подумать, может можно не заканчивать, а пропустить?
+                logger.LogInfo("Параметры для спецификации заполнены успешно", docName);
+                TaskDialog.Show("Успех", "Параметры для спецификации заполнены без ошибок");
+                return Result.Succeeded;
             }
         }
 
