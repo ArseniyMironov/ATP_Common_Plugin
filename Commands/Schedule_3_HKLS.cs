@@ -486,7 +486,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка изоляции трубопроводов"))
                 {
-                    logger.LogInfo("Начало обработки изоляции трубопроводов", docName);
+                    logger.LogInfo($"Начало обработки изоляции трубопроводов. Найдено {pipeInsulation.Count} элементов.", docName);
                     tr.Start();
                     foreach (Element insulation in pipeInsulation)
                     {

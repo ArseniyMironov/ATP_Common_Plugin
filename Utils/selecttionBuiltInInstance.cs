@@ -16,7 +16,7 @@ namespace ATP_Common_Plugin.Utils
                 .WhereElementIsNotElementType()
                 .ToList();
 
-            elements = RevitUtils.FilterTempFamilyInstance(doc, elements);
+            RevitUtils.FilterTempFamilyInstance(doc, elements);
             
             return elements;
         }
