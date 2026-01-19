@@ -580,10 +580,10 @@ namespace ATP_Common_Plugin.Commands
                             string hostFabric = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKFabricName) ?? "";
 
                             double hostOutsideDiamMm = UnitUtils.ConvertFromInternalUnits(
-                                host.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER).AsDouble(), UnitTypeId.Millimeters);
+                                host.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER)?.AsDouble() ?? 0, UnitTypeId.Millimeters);
 
                             double thicknessMm = UnitUtils.ConvertFromInternalUnits(
-                                insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS).AsDouble(),
+                                insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS)?.AsDouble() ?? 0,
                                 UnitTypeId.Millimeters);
 
                             // Базовое имя
