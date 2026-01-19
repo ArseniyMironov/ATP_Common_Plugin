@@ -511,12 +511,17 @@ namespace ATP_Common_Plugin.Commands
                             }
 
                             Element insType = doc.GetElement(insulation.GetTypeId());
+                            if (insType == null)
+                            {
+                                logger.LogWarning($"Тип изоляции для элемента {insulation.Id} не найден", docName);
+                                continue;
+                            }
 
                             bool isCategotyPypeAcc = host.Category.Id.IntegerValue == ((int)BuiltInCategory.OST_PipeAccessory);
-                            string insUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit);
-                            string insMark = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKMark);
-                            string insTypeComment = insType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsString();
-                            string hostFabric = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKFabricName);
+                            string insUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit) ?? "";
+                            string insMark = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKMark) ?? "";
+                            string insTypeComment = insType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsString() ?? "";
+                            string hostFabric = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKFabricName) ?? "";
 
                             double hostOutsideDiamMm = UnitUtils.ConvertFromInternalUnits(
                                 host.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER).AsDouble(), UnitTypeId.Millimeters);
