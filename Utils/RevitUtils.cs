@@ -69,7 +69,7 @@ namespace ATP_Common_Plugin
 
                 if (param.StorageType == StorageType.String)
                 {
-                    string oldValue = param.AsValueString();
+                    string oldValue = param.AsString();
                     if (!string.Equals(value, oldValue))
                         param.Set(value);
                 }
@@ -105,7 +105,7 @@ namespace ATP_Common_Plugin
 
             if (param.StorageType == StorageType.String)
             {
-                string oldValue = param.AsValueString();
+                string oldValue = param.AsString();
                 if (!string.Equals(value, oldValue))
                     param.Set(value);
             }
@@ -150,7 +150,7 @@ namespace ATP_Common_Plugin
         public static string GetSharedParameterValue(Element element, Guid paramGuid)
         {
             Parameter param = element.get_Parameter(paramGuid);
-            string value = param?.AsValueString();
+            string value = GetParameterValue(param);
 
             if (!string.IsNullOrEmpty(value))
                 return value;
@@ -159,16 +159,18 @@ namespace ATP_Common_Plugin
             if (elementType != null)
             {
                 Parameter typeParam = elementType.get_Parameter(paramGuid);
-                return typeParam?.AsValueString();
+                string typeValue = GetParameterValue(typeParam);
+                if (!string.IsNullOrEmpty(typeValue))
+                    return typeValue;
             }
 
-            return $"Проверьте наличие параметра {param}";
+            return $"Проверьте наличие параметра {param?.Definition?.Name ?? paramGuid.ToString()}";
         }
 
         public static string GetProjectParameterValue(Element element, string paramName)
         {
             Parameter param = element.LookupParameter(paramName);
-            string value = param?.AsValueString();
+            string value = GetParameterValue(param);
 
             if (!string.IsNullOrEmpty(value))
                 return value;
@@ -177,10 +179,20 @@ namespace ATP_Common_Plugin
             if (elementType != null)
             {
                 Parameter typeParam = elementType.LookupParameter(paramName);
-                return typeParam?.AsValueString();
+                string typeValue = GetParameterValue(typeParam);
+                if (!string.IsNullOrEmpty(typeValue))
+                    return typeValue;
             }
 
             return $"Проверьте наличие параметра {paramName}";
+        }
+
+        private static string GetParameterValue(Parameter param)
+        {
+            if (param == null) return null;
+            if (param.StorageType == StorageType.String)
+                return param.AsString();
+            return param.AsValueString();
         }
 
         public static void CheckElement(Element elem, ref string exeption)
