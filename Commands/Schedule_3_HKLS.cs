@@ -182,7 +182,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке соединительных деталей воздуховодов {ductFitting.Id} {ex}");
+                            testLog += $"Ошибка при обработке соединительных деталей воздуховодов {ductFitting.Id} {ex}\n";
                         }
                     }
                     tr.Commit();
@@ -254,7 +254,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке изоляции воздуховодов {ex}");
+                            testLog += $"Ошибка при обработке изоляции воздуховодов {ex}\n";
                             //TaskDialog.Show("Ошибка", $"Ошибка при обработке изоляции воздуховодов /n {ex.ToString()}");
                         }
                     }
@@ -312,7 +312,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке гибких воздуховодов {ex}");
+                            testLog += $"Ошибка при обработке гибких воздуховодов {ex}\n";
                             //TaskDialog.Show("Ошибка", $"Ошибка при обработке гибких воздуховодов {ex.ToString()}");
                         }
                     }
@@ -471,7 +471,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке гибких трубопроводов {flex.Id} {ex}");
+                            testLog += $"Ошибка при обработке гибких трубопроводов {flex.Id} {ex}\n";
                             //TaskDialog.Show("Ошибка", $"Ошибка при обработке трубопроводов {ex.ToString()}");
                         }
                     }
@@ -486,7 +486,7 @@ namespace ATP_Common_Plugin.Commands
             {
                 using (Transaction tr = new Transaction(doc, "Обработка изоляции трубопроводов"))
                 {
-                    logger.LogInfo("Начало обработки изоляции трубопроводов", docName);
+                    logger.LogInfo($"Начало обработки изоляции трубопроводов. Найдено {pipeInsulation.Count} элементов.", docName);
                     tr.Start();
                     foreach (Element insulation in pipeInsulation)
                     {
@@ -497,38 +497,46 @@ namespace ATP_Common_Plugin.Commands
 
                             // Получение существующих параметров 
                             InsulationLiningBase insLinBase = insulation as InsulationLiningBase;
+                            if (insLinBase == null)
+                            {
+                                logger.LogWarning($"Элемент {insulation.Id} не изоляция", docName);
+                                continue;
+                            }
+
                             Element host = doc.GetElement(insLinBase.HostElementId);
+                            if (host == null)
+                            {
+                                logger.LogWarning($"Изоляция {insulation.Id} без основы", docName);
+                                continue;
+                            }
+
                             Element insType = doc.GetElement(insulation.GetTypeId());
+                            if (insType == null)
+                            {
+                                logger.LogWarning($"Тип изоляции для элемента {insulation.Id} не найден", docName);
+                                continue;
+                            }
 
                             bool isCategotyPypeAcc = host.Category.Id.IntegerValue == ((int)BuiltInCategory.OST_PipeAccessory);
-                            string insUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit);
-                            string insMark = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKMark);
-                            string insTypeComment = insType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS).AsString();
-                            string hostFabric = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKFabricName);
+                            string insUnit = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKUnit) ?? "";
+                            string insMark = RevitUtils.GetSharedParameterValue(insulation, dictionaryGUID.ADSKMark) ?? "";
+                            string insTypeComment = insType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)?.AsString() ?? "";
+                            string hostFabric = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKFabricName) ?? "";
 
                             double hostOutsideDiamMm = UnitUtils.ConvertFromInternalUnits(
-                                host.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER).AsDouble(), UnitTypeId.Millimeters);
+                                host.get_Parameter(BuiltInParameter.RBS_PIPE_OUTER_DIAMETER)?.AsDouble() ?? 0, UnitTypeId.Millimeters);
 
                             double thicknessMm = UnitUtils.ConvertFromInternalUnits(
-                                insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS).AsDouble(),
+                                insulation.get_Parameter(BuiltInParameter.RBS_INSULATION_THICKNESS_FOR_PIPE)?.AsDouble() ?? 0,
                                 UnitTypeId.Millimeters);
 
                             // Базовое имя
                             string newName = $"{insTypeComment} толщиной {thicknessMm}";
 
-                            // Особые линейки (K-Flex ST / Energocell HT / PE Compact)
-                            if (insMark.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
-                                || insMark.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0
-                                || insTypeComment.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
-                                || insTypeComment.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                newName = $"{insTypeComment} {thicknessMm}{CalculateRightInsulationName(hostOutsideDiamMm, hostFabric)} для трубопровода {TransformFabric(hostFabric)}";
-                            }
-
                             if (insMark.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0
                                 || insTypeComment.IndexOf("PE Compact", StringComparison.OrdinalIgnoreCase) >= 0)
                             {
-                                newName = $"{insTypeComment} {thicknessMm}{CalculateRightInsulationName(hostOutsideDiamMm, hostFabric)} из вспененного полиэтилена с наружным слоем из полимерной армирующей пленки для трубопровода {TransformFabric(hostFabric)}";
+                                newName = $"{insTypeComment} {CalculateRightInsulationName(hostOutsideDiamMm, hostFabric)}x{thicknessMm} из вспененного полиэтилена с наружным слоем из полимерной армирующей пленки для трубопровода {TransformFabric(hostFabric)}";
                             }
 
                             // === Расчёт количества по единицам измерения ===
@@ -538,12 +546,22 @@ namespace ATP_Common_Plugin.Commands
                             {
                                 // аксессуары считаем штуками
                                 count = 1.0;
+                                newName = $"{insTypeComment} толщиной {thicknessMm}";
                             }
                             else if (insUnit == "м" || insUnit == "m")
                             {
                                 // длина
                                 double lenInt = insulation.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble();
                                 count = UnitUtils.ConvertFromInternalUnits(lenInt, UnitTypeId.Meters);
+                                // наименование
+                                // Особые линейки (K-Flex ST / Energocell HT / PE Compact)
+                                if (insMark.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
+                                    || insMark.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0
+                                    || insTypeComment.IndexOf("k-flex st", StringComparison.OrdinalIgnoreCase) >= 0
+                                    || insTypeComment.IndexOf("Energocell HT", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    newName = $"{insTypeComment} {CalculateRightInsulationName(hostOutsideDiamMm, hostFabric)}x{thicknessMm} для трубопровода {TransformFabric(hostFabric)}";
+                                }
                             }
                             else if (insUnit == "м²" || insUnit == "m²")
                             {
@@ -619,7 +637,7 @@ namespace ATP_Common_Plugin.Commands
                         }
                         catch (Exception ex)
                         {
-                            testLog.Concat($"Ошибка при обработке изоляции трубопроводов {ex}");
+                            logger.LogWarning($"Ошибка при обработке изоляции трубопроводов {ex}\n", docName);
                         }
                     }
                     tr.Commit();
@@ -631,15 +649,14 @@ namespace ATP_Common_Plugin.Commands
             if (testLog.Length > 0)
             {
                 //TaskDialog.Show("Ошибки", $"{testLog}");
-                TaskDialog.Show("Успех", "Параметры для спецификации заполнены");
+                TaskDialog.Show("Готово", "Параметры заполнены, но возникли ошибки (см. лог)");
                 return Result.Succeeded;
             }
             else
             {
                 //TaskDialog.Show("Готово", "Параметры для спецификации заполнены!");
-                logger.LogInfo("Параметры для спецификации заполнены", docName);
-                TaskDialog.Show("Успех", "Параметры для спецификации заполнены с ошибками (см. Error center)");
-                return Result.Succeeded; // Подумать, может можно не заканчивать, а пропустить?
+                TaskDialog.Show("Успех", "Параметры для спецификации заполнены без ошибок");
+                return Result.Succeeded;
             }
         }
 
@@ -975,7 +992,7 @@ namespace ATP_Common_Plugin.Commands
             else if (d < 140) insulDiam = "140";
             else if (d < 160) insulDiam = "160";
 
-            return $"x{insulDiam}";
+            return $"{insulDiam}";
         }
 
 
