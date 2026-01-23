@@ -159,7 +159,7 @@ namespace ATP_Common_Plugin
             if (elementType != null)
             {
                 Parameter typeParam = elementType.get_Parameter(paramGuid);
-                string typeValue = GetParameterValue(param);
+                string typeValue = GetParameterValue(typeParam);
                 if (!string.IsNullOrEmpty(typeValue))
                     return typeValue;
             }
