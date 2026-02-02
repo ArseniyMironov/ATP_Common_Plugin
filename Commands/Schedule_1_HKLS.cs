@@ -322,7 +322,7 @@ namespace ATP_Common_Plugin.Commands
             // Чем меньше ранг, тем выше приоритет
             // Piping: Н (Напорные системы), К (Канализаця), В (ХВС), Т (ГВС), Х (ХС)
             // Duct:   П (Пприток), В (Вытяжка)
-            char[] pipingPriority = { 'Н', 'К', 'В', 'Т', 'Х' };
+            char[] pipingPriority = { 'Н', 'К', 'В', 'Т', 'Х', 'К' };
             char[] ductPriority = { 'П', 'В' };
 
             Func<string, bool, int> getRank = (name, isPiping) =>
@@ -514,9 +514,12 @@ namespace ATP_Common_Plugin.Commands
             var logger = ATP_App.GetService<ILoggerService>();
 
             if (elements == null)
-            {
                 return;
-            }
+
+            string[] pipePriorities = { "Н", "К", "В", "Т", "Х" };
+            string[] ductPriorities = { "ПВ", "П", "В" };
+
+            string[] allPriorities = { "ПВ", "П", "Н", "К", "В", "Т", "Х" };
 
             foreach (Element element in elements)
             {
@@ -530,25 +533,43 @@ namespace ATP_Common_Plugin.Commands
                     if (string.IsNullOrEmpty(name))
                         continue;
 
-                    string[] priorityNames = name.Split(',');
-                    string systemName = "Оборудование без системы";
+                    string[] systemParts = name.Split(',')
+                        .Select(p => p.Trim())
+                        .Where(p => !string.IsNullOrEmpty(p))
+                        .ToArray();
 
-                    foreach (string namePart in priorityNames)
+                    string selectedSystem = "Оборудование без системы";
+                    bool found = false;
+
+                    foreach (string priority in allPriorities)
                     {
-                        var key = (namePart ?? string.Empty).Trim();
-                        if (key.Length == 0) continue;
-
-                        if (dictionary.TryGetValue(key, out string dictValue))
+                        foreach (string systemPart in systemParts)
                         {
-                            systemName = dictValue;
-                            break;
+                            if (systemPart.StartsWith(priority, StringComparison.OrdinalIgnoreCase))
+                            {
+                                selectedSystem = dictionary.TryGetValue(systemPart, out string dictValue) 
+                                    ? dictValue 
+                                    : systemPart;
+
+                                found = true;
+                                break;
+                            }
                         }
+                        if (found) break;
                     }
 
-                    var param = element.LookupParameter("ИмяСистемы");
-                    if (param != null && param.IsReadOnly == false)
+                    if (!found && systemParts.Length > 0)
                     {
-                        param.Set(systemName);
+                        string firstName = systemParts[0];
+                        selectedSystem = dictionary.TryGetValue(firstName, out string dictValue) 
+                            ? dictValue 
+                            : firstName;
+                    }
+
+                    var targetParam = element.LookupParameter("ИмяСистемы");
+                    if (targetParam != null && !targetParam.IsReadOnly)
+                    {
+                        targetParam.Set(selectedSystem);
                     }
                 }
                 catch (Exception ex)
