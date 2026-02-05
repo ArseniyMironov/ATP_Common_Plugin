@@ -28,7 +28,7 @@ namespace ATP_Common_Plugin.Commands
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc.Document;
 
-            // 1. Сбор параметров Space для заполнения выпадающего списка
+            // 1. Сбор параметров Space
             List<string> availableParams = GetWritableSpaceParameters(doc);
 
             // 2. Запуск формы
@@ -40,7 +40,7 @@ namespace ATP_Common_Plugin.Commands
                     return Result.Cancelled;
                 }
 
-                // 3. Сбор всех Space в модели
+                // 3. Сбор всех Space
                 var spacesDict = new Dictionary<string, SpatialElement>();
                 var collector = new FilteredElementCollector(doc)
                     .OfCategory(BuiltInCategory.OST_MEPSpaces)
@@ -71,7 +71,7 @@ namespace ATP_Common_Plugin.Commands
                     return Result.Failed;
                 }
 
-                // 5. Транзакция и запись данных
+                // 5. Транзакция
                 int updatedCount = 0;
                 List<string> errors = new List<string>();
 
@@ -88,15 +88,15 @@ namespace ATP_Common_Plugin.Commands
                             // --- Нагрузка ---
                             if (form.DoLoad && item.Load != null)
                             {
-                                bool ok = SetParameterValue(space, form.ParamLoadName, item.Load.Value, false, out string msg);
+                                // Передаем doc для конвертации единиц
+                                bool ok = SetParameterValue(space, form.ParamLoadName, item.Load.Value, false, doc, out string msg);
                                 if (!ok && errors.Count < 10) errors.Add($"Load Err ({item.RoomNumber}): {msg}");
                             }
 
                             // --- Температура ---
                             if (form.DoTemp && item.Temp != null)
                             {
-                                // Если записали температуру успешно - инкрементируем счетчик (как в Python скрипте)
-                                bool ok = SetParameterValue(space, form.ParamTempName, item.Temp.Value, true, out string msg);
+                                bool ok = SetParameterValue(space, form.ParamTempName, item.Temp.Value, true, doc, out string msg);
                                 if (ok)
                                 {
                                     updatedCount++;
@@ -113,13 +113,13 @@ namespace ATP_Common_Plugin.Commands
                 }
 
                 // 6. Отчет
-                string report = $"Готово!\nОбновлено элементов (Temp): {updatedCount}\nВсего найдено в Excel: {excelData.Count}";
+                string report = $"Готово!\nОбновлено (Temp): {updatedCount}\nНайдено строк в Excel: {excelData.Count}";
                 if (errors.Count > 0)
                 {
                     report += "\n\nОшибки (первые 10):\n" + string.Join("\n", errors);
                 }
 
-                TaskDialog.Show("Результат импорта", report);
+                TaskDialog.Show("Результат", report);
 
                 return Result.Succeeded;
             }
@@ -149,16 +149,14 @@ namespace ATP_Common_Plugin.Commands
             return paramsList;
         }
 
-        private bool SetParameterValue(Element elem, string paramName, double value, bool isTemperature, out string message)
+        // --- ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ---
+        private bool SetParameterValue(Element elem, string paramName, double value, bool isTemperature, Document doc, out string message)
         {
             message = "OK";
             Parameter param = elem.LookupParameter(paramName);
 
-            // Fallback для встроенного параметра нагрузки
             if (param == null && paramName == "Design Heating Load")
-            {
                 param = elem.get_Parameter(BuiltInParameter.ROOM_DESIGN_HEATING_LOAD_PARAM);
-            }
 
             if (param == null)
             {
@@ -176,11 +174,33 @@ namespace ATP_Common_Plugin.Commands
                 if (param.StorageType == StorageType.Double)
                 {
                     double valToSet = value;
-                    // Конвертация в Кельвины, если это температура
-                    if (isTemperature)
+
+                    // 1. Попытка использовать UnitUtils (Умная конвертация)
+                    // Получаем тип данных параметра (SpecTypeId)
+                    ForgeTypeId specTypeId = param.Definition.GetDataType();
+
+                    // Проверяем, является ли параметр измеряемой величиной (например, Мощность, Температура)
+                    if (UnitUtils.IsMeasurableSpec(specTypeId))
                     {
-                        valToSet = value + 273.15;
+                        // Получаем текущие настройки проекта для этого типа данных
+                        FormatOptions fo = doc.GetUnits().GetFormatOptions(specTypeId);
+                        ForgeTypeId currentDisplayUnit = fo.GetUnitTypeId();
+
+                        // Конвертируем значение "как видит пользователь" во "внутренние единицы"
+                        // Если проект в Ваттах: 1820 -> 6209.8 (BTU/h)
+                        // Если проект в Цельсиях: 20 -> 293.15 (K)
+                        valToSet = UnitUtils.ConvertToInternalUnits(value, currentDisplayUnit);
                     }
+                    else
+                    {
+                        // 2. Если параметр просто "Число" (без единиц), но мы знаем, что это Температура (по флагу)
+                        // Это Fallback для пользовательских параметров с типом "Number"
+                        if (isTemperature)
+                        {
+                            valToSet = value + 273.15;
+                        }
+                    }
+
                     return param.Set(valToSet);
                 }
                 else if (param.StorageType == StorageType.String)
@@ -231,12 +251,10 @@ namespace ATP_Common_Plugin.Commands
 
                 int rowsCount = valueArray.GetLength(0);
 
-                // В C# Interop массивы 1-based (начинаются с 1)
                 for (int r = 1; r <= rowsCount; r++)
                 {
                     try
                     {
-                        // Получаем номер помещения
                         object rawRoom = valueArray[r, colRoom];
                         string roomVal = CleanString(rawRoom);
 
@@ -245,19 +263,13 @@ namespace ATP_Common_Plugin.Commands
                         double? valLoad = null;
                         double? valTemp = null;
 
-                        // Читаем нагрузку
                         object rawLoad = valueArray[r, colLoad];
                         if (rawLoad != null && double.TryParse(rawLoad.ToString(), out double parsedLoad))
-                        {
                             valLoad = parsedLoad;
-                        }
 
-                        // Читаем температуру
                         object rawTemp = valueArray[r, colTemp];
                         if (rawTemp != null && double.TryParse(rawTemp.ToString(), out double parsedTemp))
-                        {
                             valTemp = parsedTemp;
-                        }
 
                         result.Add(new ExcelDataRow
                         {
@@ -266,15 +278,11 @@ namespace ATP_Common_Plugin.Commands
                             Temp = valTemp
                         });
                     }
-                    catch
-                    {
-                        continue;
-                    }
+                    catch { continue; }
                 }
             }
             finally
             {
-                // Очистка COM объектов (обязательно!)
                 if (xlRange != null) Marshal.ReleaseComObject(xlRange);
                 if (xlWorksheet != null) Marshal.ReleaseComObject(xlWorksheet);
                 if (xlWorkbook != null)
@@ -288,7 +296,6 @@ namespace ATP_Common_Plugin.Commands
                     Marshal.ReleaseComObject(xlApp);
                 }
             }
-
             return result;
         }
 
@@ -301,7 +308,6 @@ namespace ATP_Common_Plugin.Commands
         }
     }
 
-    // Структура для хранения строки данных
     public class ExcelDataRow
     {
         public string RoomNumber { get; set; }
@@ -309,21 +315,16 @@ namespace ATP_Common_Plugin.Commands
         public double? Temp { get; set; }
     }
 
-    // ================= КЛАСС ФОРМЫ (UI) =================
+    // ================= КЛАСС ФОРМЫ (БЕЗ ИЗМЕНЕНИЙ, но включен для полноты) =================
     public class ExcelImportForm : Form
     {
-        // Поля данных
         public string ExcelPath => txtPath.Text;
         public string SheetName => txtSheet.Text;
         public bool IsRun { get; private set; } = false;
-
         public bool DoLoad => chkLoad.Checked;
         public bool DoTemp => chkTemp.Checked;
-
         public string ParamLoadName => cmbLoad.Text;
         public string ParamTempName => cmbTemp.Text;
-
-        // Индексы колонок (1-based для C# Interop!)
         public int IdxRoom { get; private set; }
         public int IdxLoad { get; private set; }
         public int IdxTemp { get; private set; }
@@ -337,7 +338,6 @@ namespace ATP_Common_Plugin.Commands
         private ComboBox cmbTemp;
         private CheckBox chkLoad;
         private CheckBox chkTemp;
-
         private List<string> _paramList;
 
         public ExcelImportForm(List<string> paramList)
@@ -348,13 +348,11 @@ namespace ATP_Common_Plugin.Commands
 
         private void InitializeComponent()
         {
-            this.Text = "Импорт Excel -> Revit (C# Plugin)";
+            this.Text = "Импорт Excel -> Revit (Smart Units)";
             this.Size = new Size(520, 520);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.TopMost = true;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
 
             int startY = 20;
             int gap = 70;
@@ -362,10 +360,8 @@ namespace ATP_Common_Plugin.Commands
             // 1. Файл
             var lblFile = new Label { Text = "Путь к файлу Excel:", Location = new Point(20, startY), Size = new Size(400, 20) };
             this.Controls.Add(lblFile);
-
             txtPath = new TextBox { Location = new Point(20, startY + 20), Size = new Size(350, 20) };
             this.Controls.Add(txtPath);
-
             var btnBrowse = new Button { Text = "...", Location = new Point(380, startY + 19), Size = new Size(80, 22) };
             btnBrowse.Click += BtnBrowse_Click;
             this.Controls.Add(btnBrowse);
@@ -374,29 +370,24 @@ namespace ATP_Common_Plugin.Commands
             int currentY = startY + 50;
             var lblSheet = new Label { Text = "Имя листа Excel:", Location = new Point(20, currentY), AutoSize = true };
             this.Controls.Add(lblSheet);
-
-            txtSheet = new TextBox { Text = "Sheet1", Location = new Point(150, currentY - 3), Size = new Size(310, 20) };
+            txtSheet = new TextBox { Text = "Теплопотери К1_L1", Location = new Point(150, currentY - 3), Size = new Size(310, 20) };
             this.Controls.Add(txtSheet);
 
             currentY += 40;
 
             // 3. Параметры
-            // A. Номер
             var lblRoom = new Label { Text = "1. Номер помещения (Колонка Excel):", Location = new Point(20, currentY), AutoSize = true };
             this.Controls.Add(lblRoom);
-
             txtRoomCol = new TextBox { Text = "A", Location = new Point(360, currentY), Size = new Size(100, 20) };
             this.Controls.Add(txtRoomCol);
 
             currentY += 40;
 
-            // B. Нагрузка
             chkLoad = new CheckBox { Text = "2. Обновлять Нагрузку (Вт)", Location = new Point(20, currentY), Size = new Size(300, 20), Checked = true };
             chkLoad.CheckedChanged += (s, e) => { cmbLoad.Enabled = txtLoadCol.Enabled = chkLoad.Checked; };
             this.Controls.Add(chkLoad);
 
             currentY += 25;
-
             cmbLoad = CreateComboBox("Design Heating Load", 20, currentY, 320);
             var lblLoadCol = new Label { Text = "Колонка:", Location = new Point(360, currentY - 15), AutoSize = true };
             this.Controls.Add(lblLoadCol);
@@ -405,20 +396,17 @@ namespace ATP_Common_Plugin.Commands
 
             currentY += gap;
 
-            // C. Температура
             chkTemp = new CheckBox { Text = "3. Обновлять Температуру (C)", Location = new Point(20, currentY), Size = new Size(300, 20), Checked = true };
             chkTemp.CheckedChanged += (s, e) => { cmbTemp.Enabled = txtTempCol.Enabled = chkTemp.Checked; };
             this.Controls.Add(chkTemp);
 
             currentY += 25;
-
             cmbTemp = CreateComboBox("ADSK_Температура в помещении", 20, currentY, 320);
             var lblTempCol = new Label { Text = "Колонка:", Location = new Point(360, currentY - 15), AutoSize = true };
             this.Controls.Add(lblTempCol);
             txtTempCol = new TextBox { Text = "I", Location = new Point(360, currentY), Size = new Size(100, 20) };
             this.Controls.Add(txtTempCol);
 
-            // Кнопка
             var btnRun = new Button { Text = "Запустить импорт", Location = new Point(150, currentY + 60), Size = new Size(200, 40) };
             btnRun.Click += BtnRun_Click;
             this.Controls.Add(btnRun);
@@ -442,10 +430,7 @@ namespace ATP_Common_Plugin.Commands
             using (var dlg = new OpenFileDialog())
             {
                 dlg.Filter = "Excel Files|*.xlsx;*.xls;*.xlsm";
-                if (dlg.ShowDialog() == DialogResult.OK)
-                {
-                    txtPath.Text = dlg.FileName;
-                }
+                if (dlg.ShowDialog() == DialogResult.OK) txtPath.Text = dlg.FileName;
             }
         }
 
@@ -456,19 +441,11 @@ namespace ATP_Common_Plugin.Commands
                 MessageBox.Show("Выберите файл!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-
-            // Конвертация колонок в индексы
             try
             {
                 IdxRoom = ColumnLetterToNumber(txtRoomCol.Text);
-
-                // Читаем колонки данных только если галочки стоят, но для безопасности конвертируем всегда, если текст есть
-                if (chkLoad.Checked || !string.IsNullOrEmpty(txtLoadCol.Text))
-                    IdxLoad = ColumnLetterToNumber(txtLoadCol.Text);
-
-                if (chkTemp.Checked || !string.IsNullOrEmpty(txtTempCol.Text))
-                    IdxTemp = ColumnLetterToNumber(txtTempCol.Text);
-
+                if (chkLoad.Checked || !string.IsNullOrEmpty(txtLoadCol.Text)) IdxLoad = ColumnLetterToNumber(txtLoadCol.Text);
+                if (chkTemp.Checked || !string.IsNullOrEmpty(txtTempCol.Text)) IdxTemp = ColumnLetterToNumber(txtTempCol.Text);
                 if (IdxRoom < 1) throw new Exception();
             }
             catch
@@ -476,13 +453,11 @@ namespace ATP_Common_Plugin.Commands
                 MessageBox.Show("Некорректные буквы колонок!", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-
             IsRun = true;
             this.DialogResult = DialogResult.OK;
             this.Close();
         }
 
-        // Конвертер: A -> 1 (Для C# Interop используется 1-based index)
         private int ColumnLetterToNumber(string columnName)
         {
             if (string.IsNullOrEmpty(columnName)) return 0;

@@ -187,11 +187,11 @@ namespace ATP_Common_Plugin
 
                 // Import
                 // Import to space from excel
-                PushButtonData HVAC_ImportSpaceParam_BtnData = new PushButtonData(name: "Task_Mark_AirTerm", text: "Task air terminal in ceilings", assemblyName: assemblyName, commandNamespace + "ImportSpaceParamsCommand")
+                PushButtonData HVAC_ImportSpaceParam_BtnData = new PushButtonData(name: "ImportSpaceParam", text: "Import data to space", assemblyName: assemblyName, commandNamespace + "ImportSpaceParamsCommand")
                 {
                     LargeImage = numbering,
-                    ToolTip = "Заполнение основы воздухораспределителей.",
-                    LongDescription = $"Заполнение параметра ATP_Основа в воздухораспределителях необходимого для задания АР. Made by SHKA & ARMI, Icon by {numberingIconAuthor}"
+                    ToolTip = "Импорт данных в пространства.",
+                    LongDescription = $"Импорт параметров в пространства на основе Excel таблицы. Made by SHKA & ARMI, Icon by {numberingIconAuthor}"
                 };
                 PushButton HVAC_ImportSpaceParam_Btn = imporExportPanel.AddItem(HVAC_ImportSpaceParam_BtnData) as PushButton;
 
