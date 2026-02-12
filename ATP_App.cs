@@ -159,13 +159,13 @@ namespace ATP_Common_Plugin
                 
                 // Task
                 // Задание на решетки для АР
-                PushButtonData HVAC_AirTerminal_Task_BtnData = new PushButtonData(name: "Task_Mark_AirTerm", text: "Task air terminal in ceilings", assemblyName: assemblyName, commandNamespace + "FilterAirTerminalsCommand")
-                {
-                    LargeImage = numbering,
-                    ToolTip = "Заполнение основы воздухораспределителей.",
-                    LongDescription = $"Заполнение параметра ATP_Основа в воздухораспределителях необходимого для задания АР. Made by SHKA & ARMI, Icon by {numberingIconAuthor}" 
-                };
-                PushButton HVAC_AirTerminal_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_AirTerminal_Task_BtnData) as PushButton;
+                //PushButtonData HVAC_AirTerminal_Task_BtnData = new PushButtonData(name: "Task_Mark_AirTerm", text: "Task air terminal in ceilings", assemblyName: assemblyName, commandNamespace + "FilterAirTerminalsCommand")
+                //{
+                //    LargeImage = numbering,
+                //    ToolTip = "Заполнение основы воздухораспределителей.",
+                //    LongDescription = $"Заполнение параметра ATP_Основа в воздухораспределителях необходимого для задания АР. Made by SHKA & ARMI, Icon by {numberingIconAuthor}" 
+                //};
+                //PushButton HVAC_AirTerminal_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_AirTerminal_Task_BtnData) as PushButton;
 
                 // Calculation
                 // Экспорт данных для таблицы теплопотерь /  теплопритоков
