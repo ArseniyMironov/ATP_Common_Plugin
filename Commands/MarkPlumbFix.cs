@@ -102,24 +102,24 @@ namespace ATP_Common_Plugin.Commands
 
                     foreach (var sysGroup in physicalSystems)
                     {
-                    // 5) Сортировка: Z ↑, затем X ↑, затем Y ↑
-                    var ordered = abbrGroup.OrderBy(i => i.Level)
-                                   .ThenBy(i => i.P.X)
-                                   .ThenBy(i => i.P.Y);
+                        // 5) Сортировка: Z ↑, затем X ↑, затем Y ↑
+                        var ordered = abbrGroup.OrderBy(i => i.Level)
+                                       .ThenBy(i => i.P.X)
+                                       .ThenBy(i => i.P.Y);
 
-                    int index = 1; // порядковый номер внутри группы
-                    foreach (var it in ordered)
-                    {
-                        string value = $"{abbrGroup.Key}-{index}";
-                        var markParam = it.Instance.get_Parameter(dictionaryGUID.ATPMarkScriot);
-
-                        if (markParam != null && !markParam.IsReadOnly)
+                        int index = 1; // порядковый номер внутри группы
+                        foreach (var it in ordered)
                         {
-                            markParam.Set(value);
-                            totalChanged++;
+                            string value = $"{abbrGroup.Key}-{index}";
+                            var markParam = it.Instance.get_Parameter(dictionaryGUID.ATPMarkScriot);
+
+                            if (markParam != null && !markParam.IsReadOnly)
+                            {
+                                markParam.Set(value);
+                                totalChanged++;
+                            }
+                            index++;
                         }
-                        index++;
-                    }
                     }
                 }
 
