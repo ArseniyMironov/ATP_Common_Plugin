@@ -47,6 +47,7 @@ namespace ATP_Common_Plugin
                 RibbonPanel ribbonPanelHKLSSchedule = app.CreateRibbonPanel(HKLStabName, "Спецификация");
                 RibbonPanel ribbonPanelHKLSTask = app.CreateRibbonPanel(HKLStabName, "Задания");
                 RibbonPanel calcPanel = app.CreateRibbonPanel(HKLStabName, "Расчеты (In Progress)");
+                RibbonPanel imporExportPanel = app.CreateRibbonPanel(HKLStabName, "Импорт / Экспорт");
                 RibbonPanel ribbonPamelHKLSUtils = app.CreateRibbonPanel(HKLStabName, "Утилиты");
 
 
@@ -158,13 +159,13 @@ namespace ATP_Common_Plugin
                 
                 // Task
                 // Задание на решетки для АР
-                PushButtonData HVAC_AirTerminal_Task_BtnData = new PushButtonData(name: "Task_Mark_AirTerm", text: "Task air terminal in ceilings", assemblyName: assemblyName, commandNamespace + "FilterAirTerminalsCommand")
-                {
-                    LargeImage = numbering,
-                    ToolTip = "Заполнение основы воздухораспределителей.",
-                    LongDescription = $"Заполнение параметра ATP_Основа в воздухораспределителях необходимого для задания АР. Made by SHKA & ARMI, Icon by {numberingIconAuthor}" 
-                };
-                PushButton HVAC_AirTerminal_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_AirTerminal_Task_BtnData) as PushButton;
+                //PushButtonData HVAC_AirTerminal_Task_BtnData = new PushButtonData(name: "Task_Mark_AirTerm", text: "Task air terminal in ceilings", assemblyName: assemblyName, commandNamespace + "FilterAirTerminalsCommand")
+                //{
+                //    LargeImage = numbering,
+                //    ToolTip = "Заполнение основы воздухораспределителей.",
+                //    LongDescription = $"Заполнение параметра ATP_Основа в воздухораспределителях необходимого для задания АР. Made by SHKA & ARMI, Icon by {numberingIconAuthor}" 
+                //};
+                //PushButton HVAC_AirTerminal_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_AirTerminal_Task_BtnData) as PushButton;
 
                 // Calculation
                 // Экспорт данных для таблицы теплопотерь /  теплопритоков
@@ -181,7 +182,18 @@ namespace ATP_Common_Plugin
                 //                      "считает A (высота), B (ширина), площадь, ориентацию (N/E/S/W по True North) " +
                 //                      "и выгружает всё в Excel."
                 //};
-                //PushButton btn = calcPanel.AddItem(btnData) as PushButton;
+                //PushButton btn = imporExportPanel.AddItem(btnData) as PushButton;
+
+
+                // Import
+                // Import to space from excel
+                PushButtonData HVAC_ImportSpaceParam_BtnData = new PushButtonData(name: "ImportSpaceParam", text: "Import data to space", assemblyName: assemblyName, commandNamespace + "ImportSpaceParamsCommand")
+                {
+                    LargeImage = numbering,
+                    ToolTip = "Импорт данных в пространства.",
+                    LongDescription = $"Импорт параметров в пространства на основе Excel таблицы. Made by SHKA & ARMI, Icon by {numberingIconAuthor}"
+                };
+                PushButton HVAC_ImportSpaceParam_Btn = imporExportPanel.AddItem(HVAC_ImportSpaceParam_BtnData) as PushButton;
 
                 return Result.Succeeded;
 
