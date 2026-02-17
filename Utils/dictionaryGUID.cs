@@ -23,6 +23,9 @@ namespace ATP_Common_Plugin.Utils
         public static Guid ADSKSizeAngle = new Guid("a7397d18-200b-4659-b34c-3d8ae1c54317");
         public static Guid ADSKSizeArea = new Guid("b6a46386-70e9-4b1f-9fdb-8e1e3f18a673");
         public static Guid ADSKSizeVolume = new Guid("e935d9ac-6d98-4844-9f52-8f80aac9c462");
+        public static Guid ADSKVoltage = new Guid("be29221e-5b74-4a61-a253-4eb5f3b532d9");
+        public static Guid ADSKNominalPower = new Guid("b4d13aad-0763-4481-b015-63137342d077");
+        public static Guid ADSKPhaseCount = new Guid("d182b385-9e45-4e8b-b8da-725396848493");
 
         // Парамтеры ATP
         public static Guid ATPMarkScriot = new Guid("bf962560-877e-4870-b390-a649ac64bf7c");

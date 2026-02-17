@@ -384,7 +384,7 @@ namespace ATP_Common_Plugin
                 if (existingBinding is InstanceBinding ib)
                     existingCategories = ib.Categories;
                 else if (existingBinding is TypeBinding tb)
-                    existingCategories = tb.Categories;
+                    existingCategories = tb.Categories; 
 
                 // Если категория уже есть — ничего не делаем
                 if (existingCategories.Cast<Category>().Any(c => c.Id == targetCategory.Id))

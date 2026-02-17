@@ -156,16 +156,28 @@ namespace ATP_Common_Plugin
                     LongDescription = $"Заполнение значений параметров ADSK_Наименование, ADSK_Колличество, ADSK_Обозначение и ADSK_Толщина стенки. Обрабатывает категории Duct, Flex Duct, Duct Fitting, Duct Insulation, Pipe, Flex Pipe и Pipe Insulation. Запас колличества для трубопроводов и изоляции - 1.2, запас колличества для воздуховодов - 1.1 Made by ARMI, Icon by {numberingIconAuthor}"
                 };
                 PushButton Hvac_Schedule_3_Btn = ribbonPanelHKLSSchedule.AddItem(HVAC_Schedule_3_BtnData) as PushButton;
-                
+
                 // Task
+                // Задания на противопожарные клапаны
+                PushButtonData HVAC_FireDamper_Task_BtnData = new PushButtonData(name: "Task_Fire_Damper", text: "Task Valves", assemblyName: assemblyName, commandNamespace + "TaskFireDamperCommand")
+                {
+                    LargeImage = numbering,
+                    ToolTip = "Заполнение параметров для задания на подключение клапанов.",
+                    LongDescription = $"Заполнение параметра ATP_Маркировка_Скрипт и ADSK_Обозначение в клапаны категорий Duct Accesories и Air Terminal необходимых для задания на подключение оборудования. " +
+                    $"\n При наличии точек в наименовании системы (Systme Name) отбрасывает все символы после точки. " +
+                    $"\n Made by ARMI, Icon by {numberingIconAuthor}"
+                };
+                PushButton HVAC_FireDamper_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_FireDamper_Task_BtnData) as PushButton;
+
+
                 // Задание на решетки для АР
-                //PushButtonData HVAC_AirTerminal_Task_BtnData = new PushButtonData(name: "Task_Mark_AirTerm", text: "Task air terminal in ceilings", assemblyName: assemblyName, commandNamespace + "FilterAirTerminalsCommand")
+                //PushButtonData HVAC_FireDamper_Task_BtnData = new PushButtonData(name: "Task_Mark_AirTerm", text: "Task air terminal in ceilings", assemblyName: assemblyName, commandNamespace + "FilterAirTerminalsCommand")
                 //{
                 //    LargeImage = numbering,
                 //    ToolTip = "Заполнение основы воздухораспределителей.",
                 //    LongDescription = $"Заполнение параметра ATP_Основа в воздухораспределителях необходимого для задания АР. Made by SHKA & ARMI, Icon by {numberingIconAuthor}" 
                 //};
-                //PushButton HVAC_AirTerminal_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_AirTerminal_Task_BtnData) as PushButton;
+                //PushButton HVAC_FireDamper_Task_Btn = ribbonPanelHKLSTask.AddItem(HVAC_FireDamper_Task_BtnData) as PushButton;
 
                 // Calculation
                 // Экспорт данных для таблицы теплопотерь /  теплопритоков

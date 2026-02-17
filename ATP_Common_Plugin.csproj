@@ -106,7 +106,7 @@
     <Compile Include="Commands\Schedule_1_HKLS.cs" />
     <Compile Include="Commands\Schedule_2_HKLS.cs" />
     <Compile Include="Commands\Schedule_3_HKLS.cs" />
-    <Compile Include="Commands\Tasks\FireDampers.cs" />
+    <Compile Include="Commands\TaskFireDamperCommand.cs" />
     <Compile Include="Commands\ToggleLoggerCommand.cs" />
     <Compile Include="Models\Settings.cs" />
     <Compile Include="Services\Spaces\BoundaryClipService.cs" />
@@ -176,6 +176,9 @@
       <Isolated>False</Isolated>
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </COMReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Commands\Tasks\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
