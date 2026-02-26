@@ -67,33 +67,42 @@ namespace ATP_Common_Plugin
                         param.Set(value);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                logger.LogError($"Не предвиденная ошибка! {ex.Message}");
                 return;
             }
         }
         public static void SetParameterValue(Element element, string paramName, string value)
         {
-            Parameter param = element.LookupParameter(paramName);
-
             var logger = ATP_App.GetService<ILoggerService>();
 
-            if (param == null)
+            try
             {
-                logger.LogWarning($"Параметр '{paramName}' отсутствует у элемента {element.Id}", element.Document.Title);
-                return;
-            }
-            if (param.IsReadOnly)
-            {
-                logger.LogWarning($"Параметр '{paramName}' у элемента {element.Id} только для чтения", element.Document.Title);
-                return;
-            }
+                Parameter param = element.LookupParameter(paramName);
 
-            if (param.StorageType == StorageType.String)
+                if (param == null)
+                {
+                    logger.LogWarning($"Параметр '{paramName}' отсутствует у элемента {element.Id}", element.Document.Title);
+                    return;
+                }
+                if (param.IsReadOnly)
+                {
+                    logger.LogWarning($"Параметр '{paramName}' у элемента {element.Id} только для чтения", element.Document.Title);
+                    return;
+                }
+
+                if (param.StorageType == StorageType.String)
+                {
+                    string oldValue = param.AsString();
+                    if (!string.Equals(value, oldValue))
+                        param.Set(value);
+                }
+            }
+            catch (Exception ex)
             {
-                string oldValue = param.AsString();
-                if (!string.Equals(value, oldValue))
-                    param.Set(value);
+                logger.LogError($"Не предвиденная ошибка! {ex.Message}");
+                return;
             }
         }
         public static void SetParameterValue(Element element, Guid paramGuid, double value)
@@ -101,26 +110,34 @@ namespace ATP_Common_Plugin
             Parameter param = element.get_Parameter(paramGuid);
             var logger = ATP_App.GetService<ILoggerService>();
 
-            if (param == null)
+            try
             {
-                logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}", element.Document.Title);
-                return;
-            }
-            if (param.IsReadOnly)
-            {
-                logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения", element.Document.Title);
-                return;
-            }
-            if (param.StorageType != StorageType.Double)
-            {
-                logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} не Double", element.Document.Title);
-                return;
-            }
+                if (param == null)
+                {
+                    logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}", element.Document.Title);
+                    return;
+                }
+                if (param.IsReadOnly)
+                {
+                    logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения", element.Document.Title);
+                    return;
+                }
+                if (param.StorageType != StorageType.Double)
+                {
+                    logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} не Double", element.Document.Title);
+                    return;
+                }
 
-            double oldValue = param.AsDouble();
-            const double Tol = 1e-9;
-            if (Math.Abs(value - oldValue) > Tol)
-                param.Set(value);
+                double oldValue = param.AsDouble();
+                const double Tol = 1e-9;
+                if (Math.Abs(value - oldValue) > Tol)
+                    param.Set(value);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"Не предвиденная ошибка! {ex.Message}");
+                return;
+            }
         }
 
         /// <summary>
