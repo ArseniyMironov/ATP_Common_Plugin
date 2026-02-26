@@ -49,8 +49,6 @@ namespace ATP_Common_Plugin
             {
                 Parameter param = element.get_Parameter(paramGuid);
 
-                bool isElemInGroup = element.GroupId.IntegerValue != -1;
-
                 if (param == null)
                 {
                     logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}", element.Document.Title);
@@ -59,11 +57,6 @@ namespace ATP_Common_Plugin
                 if (param.IsReadOnly)
                 {
                     logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения", element.Document.Title);
-                    return;
-                }
-                if (isElemInGroup)
-                {
-                    logger.LogWarning($"Элемент {element.Id} в группе", element.Document.Title);
                     return;
                 }
 
@@ -85,8 +78,6 @@ namespace ATP_Common_Plugin
 
             var logger = ATP_App.GetService<ILoggerService>();
 
-            bool isElemInGroup = element.GroupId.IntegerValue != -1;
-
             if (param == null)
             {
                 logger.LogWarning($"Параметр '{paramName}' отсутствует у элемента {element.Id}", element.Document.Title);
@@ -95,11 +86,6 @@ namespace ATP_Common_Plugin
             if (param.IsReadOnly)
             {
                 logger.LogWarning($"Параметр '{paramName}' у элемента {element.Id} только для чтения", element.Document.Title);
-                return;
-            }
-            if (isElemInGroup)
-            {
-                logger.LogWarning($"Элемент {element.Id} в группе", element.Document.Title);
                 return;
             }
 
@@ -115,8 +101,6 @@ namespace ATP_Common_Plugin
             Parameter param = element.get_Parameter(paramGuid);
             var logger = ATP_App.GetService<ILoggerService>();
 
-            bool isElemInGroup = element.GroupId.IntegerValue != -1;
-
             if (param == null)
             {
                 logger.LogWarning($"Параметр по GUID {paramGuid} отсутствует у элемента {element.Id}", element.Document.Title);
@@ -125,11 +109,6 @@ namespace ATP_Common_Plugin
             if (param.IsReadOnly)
             {
                 logger.LogWarning($"Параметр {param.Definition?.Name} у элемента {element.Id} только для чтения", element.Document.Title);
-                return;
-            }
-            if (isElemInGroup)
-            {
-                logger.LogWarning($"Элемент {element.Id} в группе");
                 return;
             }
             if (param.StorageType != StorageType.Double)

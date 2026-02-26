@@ -103,20 +103,8 @@ namespace ATP_Common_Plugin.Commands
                         string hostKomp = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKKomp) ?? "У основного элемента не заполнен ADSK_Комплект";
                         string hostLvl = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKLevel) ?? "У основного элемента не заполнен ADSK_Этаж";
                         string hostGroupString = RevitUtils.GetSharedParameterValue(host, dictionaryGUID.ADSKGroup);
-                        double hostGroup;
-                        bool isGroupCorrect = double.TryParse(hostGroupString, NumberStyles.Float, CultureInfo.InvariantCulture, out hostGroup);
-
-                        if (!isGroupCorrect)
-                        {
-                            logger.LogWarning($"{host.Id} - ADSK_Группирование недоступен для записи {hostGroup}", docName);
-                            continue;
-                        }
-
-                        if (hostGroup % 1.0 != 0 || hostGroup < 1.0 || hostGroup > 7.0)
-                        {
-                            logger.LogWarning($"{host.Id} - ADSK_Группирование заполнено некоректно: {hostGroup}", docName);
-                            continue;
-                        }
+                        double hostGroup; 
+                        double.TryParse(hostGroupString, NumberStyles.Float, CultureInfo.InvariantCulture, out hostGroup);
 
                         double setNumber = hostGroup;
 
